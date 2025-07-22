@@ -1,0 +1,37 @@
+{
+  "name": "whatsapp-elearning",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "server": "nodemon server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ngrok/ngrok": "^1.5.1",
+    "@prisma/client": "^6.12.0",
+    "@prisma/extension-accelerate": "^2.0.2",
+    "axios": "^1.10.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "ngrok": "^5.0.0-beta.2",
+    "pg": "^8.16.3",
+    "prisma": "^6.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
