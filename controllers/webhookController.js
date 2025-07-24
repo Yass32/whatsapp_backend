@@ -31,7 +31,7 @@ const handleWebhook = async (request, response) => {
             const result = await webhookService.handleMessageStatuses(statuses);
             return response.status(200).json({
                 success: true,
-                message: 'Template message sent successfully',
+                message: 'Handle outgoing message statuses successfully',
                 data: result
             });
         };
@@ -41,7 +41,7 @@ const handleWebhook = async (request, response) => {
             const result = await webhookService.handleIncomingMessages(messages, changes[0].value.contacts[0].profile.name);
             return response.status(200).json({
                 success: true,
-                message: 'Template message sent successfully',
+                message: 'Handle incoming messages successfully',
                 data: result
             });
         };

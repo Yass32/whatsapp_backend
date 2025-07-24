@@ -14,7 +14,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Admin {
   id        Int      @id @default(autoincrement())
   name      String
   surname   String
@@ -24,10 +24,34 @@ model User {
   role      Role
   department Department 
   company   String 
-  // enrollments Enrollment[]
-  // courses   Course[]   For admins
+  courses   Course[]   For admins
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Learner {
+  id        Int      @id @default(autoincrement())
+  name      String
+  surname   String
+  email     String   @unique
+  number    String
+  department Department?
+  company   String 
+  enrollments Enrollment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Course {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String
+  coverImage  String?
+  admin       Admin     @relation(fields: [adminId], references: [id])
+  adminId     Int
+  lessons     Lesson[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 enum Role {
@@ -39,4 +63,34 @@ enum Department {
   marketing
   it
   learning
+}
+
+
+
+model Message {
+  id           Int           @id @default(autoincrement())
+  messageId    String        // WhatsApp message ID
+  from         String?        // Sender's number
+  to           String?       // Recipient's number
+  body         String?        // Message content
+  type         String?        // Message type (text, image, etc.)
+  direction    MessageDirection? // outgoing or incoming
+  status       MessageStatus? // sent, delivered, read, failed, received, etc.
+  timestamp    DateTime?      // When the message was sent/received
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+  failed
+  received
+  other
+}
+
+enum MessageDirection {
+  outgoing
+  incoming
 }
