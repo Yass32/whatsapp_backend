@@ -19,6 +19,5 @@ router.post('/logout', userController.logout);
 
 // Only admin can create learners
 router.post('/create-learner', authenticateJWT, authorizeAdmin, userController.registerLearner);
-
 module.exports = router;
 

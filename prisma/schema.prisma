@@ -21,43 +21,27 @@ model Admin {
   password  String
   email     String   @unique
   number    String
-  role      Role
   department Department 
   company   String 
-  courses   Course[]   For admins
+  courses   Course[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Learner {
-  id        Int      @id @default(autoincrement())
-  name      String
-  surname   String
-  email     String   @unique
-  number    String
-  department Department?
-  company   String 
-  enrollments Enrollment[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int           @id @default(autoincrement())
+  name         String
+  surname      String
+  email        String        @unique
+  number       String
+  department   Department?
+  company      String 
+  enrollments  Enrollment[]  // ✅ Now a real relation
+  progress     Progress[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
-model Course {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String
-  coverImage  String?
-  admin       Admin     @relation(fields: [adminId], references: [id])
-  adminId     Int
-  lessons     Lesson[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-enum Role {
-  admin
-  learner
-}
 
 enum Department {
   marketing
@@ -65,6 +49,70 @@ enum Department {
   learning
 }
 
+model Course {
+  id           Int           @id @default(autoincrement())
+  name         String
+  description  String
+  coverImage   String?
+  admin        Admin         @relation(fields: [adminId], references: [id])
+  adminId      Int
+  lessons      Lesson[]
+  enrollments  Enrollment[]  // ✅ Now linked to learners
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+
+model Lesson {
+  id          Int       @id @default(autoincrement())
+  title       String
+  content     String
+  course      Course    @relation(fields: [courseId], references: [id])
+  courseId    Int
+  quiz        Quiz?
+  day         Int       // Day in course (e.g., 1, 2, 3)
+  progress    Progress[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Quiz {
+  id          Int       @id @default(autoincrement())
+  lessonId    Int       @unique
+  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  question    String
+  options     Json      // Store options as JSON array, e.g., ["A", "B", "C"]
+  correctOption String
+  responses   Progress[]
+}
+
+model Progress {
+  id          Int       @id @default(autoincrement())
+  learnerId   Int
+  lessonId    Int
+  quizId      Int?
+  learner     Learner   @relation(fields: [learnerId], references: [id])
+  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  quiz        Quiz?     @relation(fields: [quizId], references: [id])
+  completed   Boolean   @default(false)
+  quizAnswer  String?
+  isCorrect   Boolean?
+  completedAt DateTime? @default(now())
+
+  @@unique([learnerId, lessonId]) // ✅ One progress per lesson
+}
+
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  learnerId  Int
+  courseId   Int
+  learner    Learner  @relation(fields: [learnerId], references: [id])
+  course     Course   @relation(fields: [courseId], references: [id])
+  enrolledAt DateTime @default(now())
+
+  @@unique([learnerId, courseId]) // prevent duplicate enrollments
+}
 
 
 model Message {

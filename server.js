@@ -7,6 +7,7 @@ const app = express();
 const userRoutes = require('./routes/userRoute');
 const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
+const courseRoute = require('./routes/courseRoute');
 const ngrok = require('ngrok');
 
 const PORT = process.env.PORT || 3000;
@@ -20,9 +21,11 @@ app.use(express.json());
 
 
 // Routes
-app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/whatsapp', whatsappRoutes);
 app.use('/api/v1', webhookRoutes);
+app.use('/api/v1/whatsapp', whatsappRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/courses', courseRoute);
+
 
 
 

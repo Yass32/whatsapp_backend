@@ -130,6 +130,7 @@ const deleteUser = async (userId) => {
     }
 }
 
+
 module.exports = {
     registerNewUser,
     loginUser,

@@ -33,40 +33,77 @@ const verifyWebhook = async (request) => {
 }
 
 const handleIncomingMessages = async (messages, name) => {
-    const {from, id, timestamp, text, type} = messages;
+    const { from, id, timestamp, type } = messages;
+    let messageBody = '';
+    let extraData = {};
+
     try {
+        // Handle different message types
+        switch (type) {
+            case 'text':
+                messageBody = messages.text?.body || '';
+                break;
+            case 'image':
+                messageBody = '[Image]';
+                extraData = {
+                    imageId: messages.image?.id,
+                    mimeType: messages.image?.mime_type,
+                    caption: messages.image?.caption
+                };
+                break;
+            case 'document':
+                messageBody = '[Document]';
+                extraData = {
+                    documentId: messages.document?.id,
+                    filename: messages.document?.filename,
+                    mimeType: messages.document?.mime_type
+                };
+                break;
+            case 'interactive':
+                messageBody = messages.interactive?.button_reply.title;
+                extraData = {
+                    interactiveType: messages.interactive?.type,
+                    buttonReply: messages.interactive?.button_reply,
+                    listReply: messages.interactive?.list_reply
+                };
+                break;
+            default:
+                messageBody = '[Unsupported message type]';
+        }
+
         const result = {
             name: name,
             number: from,
             message_id: id,
-            message_body: text.body,
             type: type,
+            message_body: messageBody,
+            ...extraData,
             timestamp: formattedDate(timestamp)
-        }
+        };
 
+        // Save to database
         try {
-            const message = await prisma.message.create({
+            await prisma.message.create({
                 data: {
                     messageId: id,
                     from: from,
-                    body: text.body,
+                    body: messageBody,
                     type: type,
                     direction: "incoming",
                     status: "received",
                     timestamp: new Date(parseInt(timestamp) * 1000)
                 }
-            })
-            console.log("Messages table updated successfully", message) ;
+            });
         } catch (error) {
-            throw new Error('Failed to log incoming message ');
+            throw new Error('Failed to log incoming message');
         }
 
         return result;
     } catch (error) {
-        console.error('Webhook recieving message error:', error);
-        throw error; // throw instead of return
+        console.error('Webhook receiving message error:', error);
+        throw error;
     }
-}
+};
 
 const handleMessageStatuses = async (statuses) => {
     const {id, status, timestamp, recipient_id} = statuses;

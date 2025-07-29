@@ -101,6 +101,8 @@ const deleteUser = async (request, response) => {
 }
 
 
+
+
 module.exports = {
     registerUser,
     loginUser,
@@ -110,5 +112,5 @@ module.exports = {
     deleteUser,
     registerLearner,
     refreshToken,
-    logout
+    logout,
 }
