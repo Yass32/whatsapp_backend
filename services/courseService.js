@@ -67,10 +67,20 @@ const createCourse = async (courseData, lessonsData, enrollmentsData, numbers) =
 
         // Notify all numbers about the new course
         for (const to of numbers) {
-            sendTemplateMessage(to, 'new_course', 'en', [courseData.name, courseData.description]);
-            sendTextMessage(to, courseData.name);
-            if (courseData.coverImage) sendImageMessage(to, courseData.coverImage);
-            sendTextMessage(to, courseData.description);
+          //sendTemplateMessage(to, 'new_course', 'en', [courseData.name, courseData.description]);
+          await sendTextMessage(to, courseData.name);
+          if (courseData.coverImage) await sendImageMessage(to, courseData.coverImage);
+          await sendTextMessage(to, courseData.description);
+          
+          // Send lessons with quizzes
+          for (const lesson of lessonsData) {
+            if (lesson.quiz) {
+              await sendInteractiveMessage(to, lesson.title, lesson.content, lesson.quiz.question, lesson.quiz.options);
+            } else {
+              // Send lesson without quiz
+              await sendInteractiveMessage(to, lesson.title, lesson.content, null, []);
+            }
+          }
         }
 
         return { course, lessons, quizzes, enrollments };
@@ -79,7 +89,70 @@ const createCourse = async (courseData, lessonsData, enrollmentsData, numbers) =
     }
 };
 
+const deleteAllCourses = async () => {
+  try {
+      return prisma.course.deleteMany({});;
+  } catch (error) {
+      throw new Error('Failed to delete course');
+  }
+}
+
 
 module.exports = {
     createCourse,
+    deleteAllCourses
 }
+
+/*
+{
+  "courseData": {
+    "name": "Introduction to Node.js",
+    "description": "Learn the fundamentals of Node.js development",
+    "coverImage": "https://example.com/nodejs-cover.jpg",
+    "adminId": 1
+  },
+  "lessonsData": [
+    {
+      "title": "What is Node.js?",
+      "content": "Node.js is a JavaScript runtime built on Chrome's V8 JavaScript engine...",
+      "day": 1,
+      "quiz": {
+        "question": "What is Node.js?",
+        "options": ["A programming language", "A JavaScript runtime", "A database", "A web browser"],
+        "correctOption": "A JavaScript runtime"
+      }
+    },
+    {
+      "title": "Installing Node.js",
+      "content": "To get started with Node.js, you need to install it on your system...",
+      "day": 2,
+      "quiz": {
+        "question": "Which command installs Node.js globally?",
+        "options": ["npm install node", "brew install node", "apt-get install nodejs", "All of the above"],
+        "correctOption": "All of the above"
+      }
+    },
+    {
+      "title": "Your First Node.js App",
+      "content": "Let's create a simple Hello World application...",
+      "day": 3
+      // No quiz for this lesson
+    }
+  ],
+  "enrollmentsData": [
+    {
+      "learnerId": 2
+    },
+    {
+      "learnerId": 3
+    },
+    {
+      "learnerId": 4
+    }
+  ],
+  "numbers": [
+    "+1234567890",
+    "+0987654321"
+  ]
+}
+  */

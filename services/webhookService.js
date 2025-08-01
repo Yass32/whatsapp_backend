@@ -87,6 +87,7 @@ const handleIncomingMessages = async (messages, name) => {
                 data: {
                     messageId: id,
                     from: from,
+                    to: "zenolearn",
                     body: messageBody,
                     type: type,
                     direction: "incoming",
@@ -106,37 +107,62 @@ const handleIncomingMessages = async (messages, name) => {
 };
 
 const handleMessageStatuses = async (statuses) => {
-    const {id, status, timestamp, recipient_id} = statuses;
     try {
+        // Validate required fields
+        if (!statuses || !statuses.id || !statuses.status) {
+            console.warn('Invalid status data received:', statuses);
+            return null;
+        }
+
+        const {id, status, timestamp, recipient_id} = statuses;
+        
         const result = {
             message_id: id,
             status: status,
             recipient_id: recipient_id,
-            time: formattedDate(timestamp)
+            time: timestamp ? formattedDate(timestamp) : 'Unknown'
         }
 
         try {
+            // Update the message status using messageId
             const message = await prisma.message.update({
-                where:{ messageId: id },
+                where: { messageId: id },
                 data: {
                     status: status,
-                    timestamp: new Date(parseInt(timestamp) * 1000)
+                    timestamp: timestamp ? new Date(parseInt(timestamp) * 1000) : new Date()
                 }
-            })
-            console.log("Messages table updated successfully", message) ;
+            });
+            
+            if (message.count === 0) {
+                console.warn(`Message with ID ${id} not found in database`);
+            } else {
+                console.log("Message status updated successfully. Updated count:", message.count);
+            }
         } catch (error) {
-            throw new Error('Failed to update message status');
+            console.error('Failed to update message status:', error);
+            // Don't throw error, just log it and return the result
+            // This prevents webhook failures from breaking the entire flow
         }
 
         return result;
     } catch (error) {
         console.error('Webhook message status error:', error);
-        throw error; // throw instead of return
+        // Return null instead of throwing to prevent webhook failures
+        return null;
+    }
+}
+
+const deleteAllMessages = async () => {
+    try {
+        return prisma.message.deleteMany({});;
+    } catch (error) {
+        throw new Error('Failed to delete messages');
     }
 }
 
 module.exports = {
     verifyWebhook,
     handleIncomingMessages,
-    handleMessageStatuses
+    handleMessageStatuses,
+    deleteAllMessages
 }

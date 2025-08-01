@@ -36,7 +36,7 @@ model Learner {
   number       String
   department   Department?
   company      String 
-  enrollments  Enrollment[]  // ✅ Now a real relation
+  enrollments  Enrollment[] // ✅ Now a real relation
   progress     Progress[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -56,8 +56,8 @@ model Course {
   coverImage   String?
   admin        Admin         @relation(fields: [adminId], references: [id])
   adminId      Int
-  lessons      Lesson[]
-  enrollments  Enrollment[]  // ✅ Now linked to learners
+  lessons      Lesson[]      
+  enrollments  Enrollment[]  
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -67,9 +67,9 @@ model Lesson {
   id          Int       @id @default(autoincrement())
   title       String
   content     String
-  course      Course    @relation(fields: [courseId], references: [id])
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId    Int
-  quiz        Quiz?
+  quiz        Quiz?     
   day         Int       // Day in course (e.g., 1, 2, 3)
   progress    Progress[]
   createdAt   DateTime  @default(now())
@@ -79,7 +79,7 @@ model Lesson {
 model Quiz {
   id          Int       @id @default(autoincrement())
   lessonId    Int       @unique
-  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   question    String
   options     Json      // Store options as JSON array, e.g., ["A", "B", "C"]
   correctOption String
@@ -91,9 +91,9 @@ model Progress {
   learnerId   Int
   lessonId    Int
   quizId      Int?
-  learner     Learner   @relation(fields: [learnerId], references: [id])
-  lesson      Lesson    @relation(fields: [lessonId], references: [id])
-  quiz        Quiz?     @relation(fields: [quizId], references: [id])
+  learner     Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quiz        Quiz?     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   completed   Boolean   @default(false)
   quizAnswer  String?
   isCorrect   Boolean?
@@ -107,8 +107,8 @@ model Enrollment {
   id         Int      @id @default(autoincrement())
   learnerId  Int
   courseId   Int
-  learner    Learner  @relation(fields: [learnerId], references: [id])
-  course     Course   @relation(fields: [courseId], references: [id])
+  learner    Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   enrolledAt DateTime @default(now())
 
   @@unique([learnerId, courseId]) // prevent duplicate enrollments
@@ -117,7 +117,7 @@ model Enrollment {
 
 model Message {
   id           Int           @id @default(autoincrement())
-  messageId    String        // WhatsApp message ID
+  messageId    String        @unique // WhatsApp message ID - now unique
   from         String?        // Sender's number
   to           String?       // Recipient's number
   body         String?        // Message content

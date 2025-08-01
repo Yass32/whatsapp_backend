@@ -1,3 +1,4 @@
+const { response } = require('express');
 const courseService = require('../services/courseService');
 const createCourse = async (request, response) => {
     const {courseData, lessonsData, enrollmentsData, numbers} = request.body;
@@ -9,6 +10,16 @@ const createCourse = async (request, response) => {
     }
 }
 
+const deleteAllCourses =  async (request, response) => {
+    try {
+      await courseService.deleteAllCourses();
+      response.status(200).json({ message: 'All courses and related data deleted.' });
+    } catch (error) {
+      response.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
-    createCourse
+    createCourse,
+    deleteAllCourses
 }

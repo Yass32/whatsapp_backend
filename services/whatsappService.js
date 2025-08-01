@@ -35,17 +35,19 @@ const sendTextMessage = async (to, message) => {
             };
 
             try {
-              const message = await prisma.message.create({
+              const messageLog = await prisma.message.create({
                 data: {
                   messageId: response.data.messages[0].id,
+                  from: "zenolearn",
                   to: response.data.contacts[0].wa_id,
                   body: message,
                   type: "Text",
                   direction: "outgoing",
                 }
               })
-              console.log("Messages table updated successfully", message) ;
+              console.log("Messages table updated successfully", messageLog) ;
             } catch (error) {
+              console.error(error)
               throw new Error('Failed to log text message');
             }
 
@@ -86,6 +88,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
       const message = await prisma.message.create({
         data: {
           messageId: response.data.messages[0].id,
+          from: "zenolearn",
           to: response.data.contacts[0].wa_id,
           body: templateName,
           type: "Template",
@@ -94,7 +97,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
       })
       console.log("Messages table updated successfully", message) ;
     } catch (error) {
-      throw new Error('Failed to log template message ');
+      throw new Error('Failed to log template message');
     }
 
     const result = {
@@ -128,6 +131,22 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
         headers: headers
       });
 
+      try {
+        const message = await prisma.message.create({
+          data: {
+            messageId: response.data.messages[0].id,
+            from: "zenolearn",
+            to: response.data.contacts[0].wa_id,
+            body: imageUrl,
+            type: "Image",
+            direction: "outgoing"
+          }
+        })
+        console.log("Messages table updated successfully", message) ;
+      } catch (error) {
+        throw new Error('Failed to log image message');
+      }
+
       console.log('Image message sent successfully:', response.data);
       return response.data;
     } catch (error) {
@@ -153,16 +172,26 @@ const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, opt
           text: bodyText
         },
         footer: {
-          text: quizQuestion
+          text: quizQuestion? quizQuestion : null
         },
         action: {
-          buttons: options.map((option, index) => ({
+          buttons: options.length === 0 ? [{
             type: 'reply',
             reply: {
-              id: `option_${index}`,
-              title: option.title
+              id: 'done',
+              title: 'Done'
             }
-          }))
+          }] : options.slice(0, 3).map((option, index) => {
+            // Truncate option text to max 20 characters for WhatsApp button title
+            const truncatedTitle = option.length > 20 ? option.substring(0, 17) + '...' : option;
+            return {
+              type: 'reply',
+              reply: {
+                id: `option_${index}`,
+                title: truncatedTitle
+              }
+            };
+          })
         }
       }
     };
@@ -175,15 +204,16 @@ const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, opt
       const quiz = await prisma.message.create({
         data: {
           messageId: response.data.messages[0].id,
+          from: "zenolearn",
           to: response.data.contacts[0].wa_id,
-          body: quizQuestion,
+          body: quizQuestion? quizQuestion : `No quiz for Lesson ${bodyTitle}`,
           type: "Lesson&Question",
           direction: "outgoing"
         }
       })
       console.log("Message table updated successfully", quiz) ;
     } catch (error) {
-      throw new Error('Failed to log template message ');
+      throw new Error('Failed to log interactive message');
     }
 
     const result = {

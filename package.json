@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@ngrok/ngrok": "^1.5.1",
-    "@prisma/client": "^6.12.0",
+    "@prisma/client": "^6.13.0",
     "@prisma/extension-accelerate": "^2.0.2",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
@@ -28,10 +28,10 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "ngrok": "^5.0.0-beta.2",
-    "pg": "^8.16.3",
-    "prisma": "^6.12.0"
+    "pg": "^8.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "prisma": "^6.13.0"
   }
 }

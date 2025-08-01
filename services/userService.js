@@ -22,25 +22,37 @@ function generateRefreshToken(user) {
 }
 
 const registerNewUser = async (userData) => {
-    const {name, surname, password, email, number, role, department, company} = userData;
+    const {name, surname, password, email, number, department, company} = userData;
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await prisma.user.create({
-            data: {
-            name,
-            surname,
-            password: hashedPassword,
-            email,
-            number,
-            role,
-            department,
-            company,
-            createdAt: new Date(),
-            updatedAt: new Date()
-            }
-        })
-        return newUser;
+        if (typeof password === 'string' && password.trim() !== '') {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const newAdmin = await prisma.admin.create({
+                data: {
+                name,
+                surname,
+                password: hashedPassword,
+                email,
+                number,
+                department,
+                company,
+                }
+            })
+            return newAdmin;
+        } else {
+            const newLearner = await prisma.learner.create({
+                data: {
+                    name,
+                    surname,
+                    email,
+                    number,
+                    department,
+                    company,
+                }
+            })
+            return newLearner;
+        }
     } catch (error) {
+        console.error("Registration error:", error); 
         throw new Error('Failed to register user');
     }
 }
@@ -49,11 +61,11 @@ const registerNewUser = async (userData) => {
 const loginUser = async (userData) => {
     const {email, password} = userData;
     try {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.admin.findUnique({
             where: {email}
         })
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('Admin not found');
         }
 
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
@@ -74,7 +86,7 @@ const loginUser = async (userData) => {
 
 const getUser = async (userId) => {
     try {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.admin.findUnique({
             where: { id: Number(userId) }
         });
         if (!user) {
@@ -89,7 +101,7 @@ const getUser = async (userId) => {
 
 const getAllUsers = async () => {
     try {
-        const users = await prisma.user.findMany();
+        const users = await prisma.admin.findMany();
         return users;
     } catch (error) {
         throw new Error('Failed to get all users');
@@ -103,7 +115,7 @@ const updateUser = async (userId, requestBody) => {
         if (password) {
             updatedData.password = await bcrypt.hash(password, 10);
         }
-        const user = await prisma.user.update({
+        const user = await prisma.admin.update({
             where: { id: Number(userId) },
             data: updatedData
         });
@@ -118,7 +130,7 @@ const updateUser = async (userId, requestBody) => {
 
 const deleteUser = async (userId) => {
     try {
-        const user = await prisma.user.delete({
+        const user = await prisma.admin.delete({
             where: { id : Number(userId)}
         })
         if (!user) {

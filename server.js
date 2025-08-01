@@ -8,7 +8,7 @@ const userRoutes = require('./routes/userRoute');
 const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
 const courseRoute = require('./routes/courseRoute');
-const ngrok = require('ngrok');
+const ngrok = require('@ngrok/ngrok');
 
 const PORT = process.env.PORT || 3000;
 
@@ -32,11 +32,17 @@ app.use('/api/v1/courses', courseRoute);
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
 
-  // Start ngrok tunnel
-  const url = await ngrok.connect({
-    addr: PORT,
-    authtoken: process.env.NGROK_AUTHTOKEN // optional, if you have an ngrok account
-  });
-  console.log(`ngrok tunnel opened at: ${url}`);
-  
+  try {
+    const listener = await ngrok.connect({
+      addr: PORT, // Your Node.js app's port
+      authtoken: process.env.NGROK_AUTHTOKEN, // Set your auth token in .env
+      domain: 'climbing-cosmic-pegasus.ngrok-free.app' // Your reserved static domain
+
+    });
+    console.log(`ngrok tunnel started at: ${listener}`);
+    console.log(listener);
+  } catch (error) {
+    console.error('Error starting ngrok:', error);
+    console.error('ngrok error details:', error.message, error.response?.data);
+  }
 });

@@ -33,7 +33,6 @@ const sendTemplateMessage = async (request, response) => {
             message: 'Both "to" and "templateName" fields are required'
           });
         }
-        
         // Send template message
         const result = await whatsappService.sendTemplateMessage(to, templateName, languageCode, parameters);
         
@@ -49,8 +48,55 @@ const sendTemplateMessage = async (request, response) => {
     }
 };
 
+const sendImageMessage = async (request, response) => {
+  const { to, imageUrl, caption } = request.body;
+  try {
+    // Validation
+    if (!to || !imageUrl) {
+      return response.status(400).json({
+        error: 'Bad Request',
+        message: 'Both "to" and "imageUrl" fields are required'
+      });
+    }
+
+    const result = await whatsappService.sendImageMessage(to, imageUrl, caption);
+    response.status(200).json({
+      success: true,
+      message: 'Image message sent successfully',
+      data: result
+    });
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+}
+
+const sendInteractiveMessage = async (request, response) => {
+  const { to, bodyTitle, bodyText, quizQuestion, options } = request.body;
+  try {
+    // Validation
+    if (!to || !bodyTitle) {
+      return response.status(400).json({
+        error: 'Bad Request',
+        message: 'Both "to" and "lessonTitle" fields are required'
+      });
+    }
+
+    const result = await whatsappService.sendInteractiveMessage(to, bodyTitle, bodyText, quizQuestion, options);
+    response.status(200).json({
+      success: true,
+      message: 'Interactive message sent successfully',
+      data: result
+    });
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+}
+
+
 
 module.exports = {
   sendTextMessage,
-  sendTemplateMessage
+  sendTemplateMessage,
+  sendImageMessage,
+  sendInteractiveMessage
 }

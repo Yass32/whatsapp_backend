@@ -11,8 +11,7 @@ const registerUser = async (request, response) => {
 
 const registerLearner = async (request, response) => {
     try {
-        const learnerData = { ...request.body, role: 'learner' };
-        const newLearner = await userService.registerNewUser(learnerData);
+        const newLearner = await userService.registerNewUser(request.body);
         response.status(201).json(newLearner);
     } catch (error) {
         response.status(500).json({ error: error.message });

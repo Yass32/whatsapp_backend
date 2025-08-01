@@ -18,6 +18,9 @@ router.post('/refresh-token', userController.refreshToken);
 router.post('/logout', userController.logout);
 
 // Only admin can create learners
-router.post('/create-learner', authenticateJWT, authorizeAdmin, userController.registerLearner);
+// router.post('/create-learner', authenticateJWT, authorizeAdmin, userController.registerLearner);
+
+router.post('/create-learner', userController.registerLearner);
+
 module.exports = router;
 
