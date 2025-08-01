@@ -52,7 +52,17 @@ const handleWebhook = async (request, response) => {
 
 }
 
+const deleteAllMessages =  async (request, response) => {
+    try {
+      await webhookService.deleteAllMessages();
+      response.status(200).json({ message: 'All messages have been deleted.' });
+    } catch (error) {
+      response.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     verifyWebhook,
-    handleWebhook
+    handleWebhook,
+    deleteAllMessages
 }

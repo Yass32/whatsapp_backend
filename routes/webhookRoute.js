@@ -8,4 +8,6 @@ router.get('/test', (req, res) => res.send('Webhook route works!'));
 
 router.post('/webhook', webhookController.handleWebhook);
 
+router.delete('/all-messages', webhookController.deleteAllMessages);
+
 module.exports = router;

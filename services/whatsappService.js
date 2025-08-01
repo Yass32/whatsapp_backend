@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { format } = require("date-fns");
 const { PrismaClient } = require('../generated/prisma');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
 
@@ -28,11 +29,6 @@ const sendTextMessage = async (to, message) => {
               headers: headers
             });
 
-            const result = {
-              recipient_id: response.data.contacts[0].wa_id,
-              message_id: response.data.messages[0].id,
-              message: message
-            };
 
             try {
               const messageLog = await prisma.message.create({
@@ -41,20 +37,21 @@ const sendTextMessage = async (to, message) => {
                   from: "zenolearn",
                   to: response.data.contacts[0].wa_id,
                   body: message,
-                  type: "Text",
+                  type: "text",
                   direction: "outgoing",
+                  localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
                 }
               })
-              console.log("Messages table updated successfully", messageLog) ;
+              return messageLog;
+
             } catch (error) {
               console.error(error)
               throw new Error('Failed to log text message');
             }
-
-            return result;
+            
       } catch (error) {
-            console.error('Error sending message:', error.response?.data || error.message);
-            throw error;
+          console.error('Error sending message:', error.response?.data || error.message);
+          throw error;
       }
 }
 
@@ -91,22 +88,16 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
           from: "zenolearn",
           to: response.data.contacts[0].wa_id,
           body: templateName,
-          type: "Template",
-          direction: "outgoing"
+          type: "template",
+          direction: "outgoing",
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
         }
       })
-      console.log("Messages table updated successfully", message) ;
+      return message;
     } catch (error) {
       throw new Error('Failed to log template message');
     }
 
-    const result = {
-      recipient_id: response.data.contacts[0].wa_id,
-      message_id: response.data.messages[0].id,
-      message: templateName,
-    };
-
-    return result;
   } catch (error) {
     console.error('Error sending template message:', error.response?.data || error.message);
     throw error;
@@ -138,17 +129,15 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
             from: "zenolearn",
             to: response.data.contacts[0].wa_id,
             body: imageUrl,
-            type: "Image",
-            direction: "outgoing"
+            type: "image",
+            direction: "outgoing",
+            localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
           }
         })
-        console.log("Messages table updated successfully", message) ;
+        return message;
       } catch (error) {
         throw new Error('Failed to log image message');
       }
-
-      console.log('Image message sent successfully:', response.data);
-      return response.data;
     } catch (error) {
       console.error('Error sending image message:', error.response?.data || error.message);
       throw error;
@@ -206,23 +195,17 @@ const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, opt
           messageId: response.data.messages[0].id,
           from: "zenolearn",
           to: response.data.contacts[0].wa_id,
-          body: quizQuestion? quizQuestion : `No quiz for Lesson ${bodyTitle}`,
-          type: "Lesson&Question",
-          direction: "outgoing"
+          body: quizQuestion? quizQuestion : `No quiz for lesson: ${bodyTitle}`,
+          type: "lesson & question",
+          direction: "outgoing",
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
         }
       })
-      console.log("Message table updated successfully", quiz) ;
+      return quiz;
     } catch (error) {
       throw new Error('Failed to log interactive message');
     }
 
-    const result = {
-      recipient_id: response.data.contacts[0].wa_id,
-      message_id: response.data.messages[0].id,
-      message: quizQuestion,
-    };
-
-    return result;
 
   } catch (error) {
     console.error('Error sending button message:', error.response?.data || error.message);

@@ -124,8 +124,8 @@ model Message {
   type         String?        // Message type (text, image, etc.)
   direction    MessageDirection? // outgoing or incoming
   status       MessageStatus? // sent, delivered, read, failed, received, etc.
-  timestamp    DateTime?      // When the message was sent/received
-  createdAt    DateTime      @default(now())
+  localtime    DateTime?      // When the message was sent/received (UTC+3)
+  createdAt    DateTime      @default(now()) 
   updatedAt    DateTime      @updatedAt
 }
 

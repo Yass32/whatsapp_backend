@@ -92,7 +92,7 @@ const handleIncomingMessages = async (messages, name) => {
                     type: type,
                     direction: "incoming",
                     status: "received",
-                    timestamp: new Date(parseInt(timestamp) * 1000)
+                    localtime: new Date(parseInt(timestamp) * 1000 + (3 * 60 * 60 * 1000)) //UTC +3
                 }
             });
         } catch (error) {
@@ -125,19 +125,14 @@ const handleMessageStatuses = async (statuses) => {
 
         try {
             // Update the message status using messageId
-            const message = await prisma.message.update({
+            const message = await prisma.message.updateMany({
                 where: { messageId: id },
                 data: {
                     status: status,
-                    timestamp: timestamp ? new Date(parseInt(timestamp) * 1000) : new Date()
+                    //timestamp: timestamp ? new Date(parseInt(timestamp) * 1000) : new Date()
                 }
             });
             
-            if (message.count === 0) {
-                console.warn(`Message with ID ${id} not found in database`);
-            } else {
-                console.log("Message status updated successfully. Updated count:", message.count);
-            }
         } catch (error) {
             console.error('Failed to update message status:', error);
             // Don't throw error, just log it and return the result
@@ -154,13 +149,14 @@ const handleMessageStatuses = async (statuses) => {
 
 const deleteAllMessages = async () => {
     try {
-        return prisma.message.deleteMany({});;
+        return prisma.message.deleteMany({});
     } catch (error) {
         throw new Error('Failed to delete messages');
     }
 }
 
 module.exports = {
+    formattedDate,
     verifyWebhook,
     handleIncomingMessages,
     handleMessageStatuses,
