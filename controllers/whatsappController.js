@@ -43,7 +43,7 @@ const sendTemplateMessage = async (request, response) => {
             data: result
         });
     } catch (error) {
-      console.error('Error in sendTemplateMessage:', error);
+      console.error('Error in sendTemplateMessage:', error.message);
       response.status(500).json({error: 'Internal Server Error', message: error.message});
     }
 };

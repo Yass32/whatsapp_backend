@@ -56,8 +56,35 @@ const sendTextMessage = async (to, message) => {
 }
 
 // Send a template message
-const sendTemplateMessage = async (to, templateName, languageCode, parameters = []) => {
+const sendTemplateMessage = async (to, templateName, languageCode, parameters) => {
+  const { header = [], body = [] } = parameters;
+  
   try {
+    // Build components array properly
+    const components = [];
+    
+    // Add header component if header parameters exist
+    if (header.length > 0) {
+      components.push({
+        type: 'header',
+        parameters: header.map(param => ({
+          type: 'text',
+          text: param
+        }))
+      });
+    }
+    
+    // Add body component if body parameters exist
+    if (body.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: body.map(param => ({
+          type: 'text',
+          text: param
+        }))
+      });
+    }
+
     const payload = {
       messaging_product: 'whatsapp',
       to: to,
@@ -65,17 +92,13 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters = 
       template: {
         name: templateName,
         language: {
-          code: languageCode? languageCode : 'en'
+          code: languageCode ? languageCode : 'en'
         },
-        components: parameters.length > 0 ? [{
-          type: 'body',
-          parameters: parameters.map(param => ({
-            type: 'text',
-            text: param
-          }))
-        }] : []
+        components: components
       }
     };
+    
+    console.log('Template payload:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(baseUrl, payload, {
       headers: headers
