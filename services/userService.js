@@ -24,10 +24,9 @@ function generateRefreshToken(user) {
 const registerNewUser = async (userData) => {
     const {name, surname, password, email, number, department, company} = userData;
     try {
-        if (typeof password === 'string' && password.trim() !== '') {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const newAdmin = await prisma.admin.create({
-                data: {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newAdmin = await prisma.admin.create({
+            data: {
                 name,
                 surname,
                 password: hashedPassword,
@@ -35,22 +34,9 @@ const registerNewUser = async (userData) => {
                 number,
                 department,
                 company,
-                }
-            })
-            return newAdmin;
-        } else {
-            const newLearner = await prisma.learner.create({
-                data: {
-                    name,
-                    surname,
-                    email,
-                    number,
-                    department,
-                    company,
-                }
-            })
-            return newLearner;
-        }
+            }
+        })
+        return newAdmin;
     } catch (error) {
         console.error("Registration error:", error); 
         throw new Error('Failed to register user');
@@ -82,7 +68,6 @@ const loginUser = async (userData) => {
         throw new Error('Failed to login user');
     }
 }
-
 
 const getUser = async (userId) => {
     try {

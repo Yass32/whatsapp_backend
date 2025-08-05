@@ -40,6 +40,14 @@ const handleIncomingMessages = async (messages, name) => {
     try {
         // Handle different message types
         switch (type) {
+            case 'button':
+                messageBody = messages.button?.text || '';
+                extraData = {
+                    from: messages.context?.from,
+                    context: messages.context?.id,
+                }
+                await handleQuickReply(messageBody);
+                break;
             case 'text':
                 messageBody = messages.text?.body || '';
                 break;
@@ -147,6 +155,37 @@ const handleMessageStatuses = async (statuses) => {
     }
 }
 
+const handleQuickReply = async (messageBody) => {
+    if(messageBody === "Start"){
+        await sendTextMessage(from, "Thank you for enrolling in our course. We will notify you when the course starts.");
+        try {
+            const setActiveLearner = await prisma.learner.updateMany({
+                where: { number: from },
+                data: { active: true }
+            });
+            if (!setActiveLearner) {
+                throw new Error('Learner not found');
+            }
+        } catch (error) {
+            console.error('Failed to find learner:', error);
+        }  
+    }
+    else if(messageBody === "Done") {
+        await sendTextMessage(from, "Thank you for completing this lesson. We will notify you when the next lesson starts.");
+        try {
+            const setActiveLearner = await prisma.lessonProgress.update({
+                where: { learnerId: from },
+                data: { completed: true }
+            });
+            if (!setActiveLearner) {
+                throw new Error('Lesson progress not found');
+            }
+        } catch (error) {
+            console.error('Failed to find lesson progress:', error);
+        }
+    }
+}
+
 const deleteAllMessages = async () => {
     try {
         return prisma.message.deleteMany({});
@@ -160,5 +199,6 @@ module.exports = {
     verifyWebhook,
     handleIncomingMessages,
     handleMessageStatuses,
+    handleQuickReply,
     deleteAllMessages
 }

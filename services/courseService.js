@@ -10,13 +10,15 @@ const prisma = new PrismaClient().$extends(withAccelerate());
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Schedule lessons to be sent at specific times
+ * Schedule lessons to be sent at specific times with start date and frequency
  * @param {number} courseId - The course ID
  * @param {Array} numbers - Array of WhatsApp numbers to notify
  * @param {string} scheduleTime - Time in format "HH:MM" (24-hour format)
- * @param {string} timezone - Timezone (optional, defaults to system timezone)
+ * @param {string} startDate - Start date in format "YYYY-MM-DD" (optional, defaults to today)
+ * @param {string} frequency - Frequency: "daily", "weekly", or "monthly" (defaults to "daily")
+ * @param {string} timezone - Timezone (optional, defaults to Europe/Istanbul)
  */
-const scheduleLessons = async (courseId, numbers, scheduleTime = "08:00", timezone = "Africa/Cairo") => {
+const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startDate = null, frequency = "daily", timezone = "Europe/Istanbul") => {
   try {
     // Get course with lessons and quizzes
     const course = await prisma.course.findUnique({
@@ -43,43 +45,77 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "08:00", timezo
       throw new Error('Invalid time format. Use HH:MM in 24-hour format');
     }
 
-    // Create cron expression for daily execution at specified time
-    const cronExpression = `${minute} ${hour} * * *`;
+    // Handle start date
+    let schedulingStartDate = new Date();
+    if (startDate) {
+      schedulingStartDate = new Date(startDate);
+      if (isNaN(schedulingStartDate.getTime())) {
+        throw new Error('Invalid start date format. Use YYYY-MM-DD');
+      }
+    }
+
+    // Validate frequency
+    const validFrequencies = ['daily', 'weekly', 'monthly'];
+    if (!validFrequencies.includes(frequency.toLowerCase())) {
+      throw new Error('Invalid frequency. Use "daily", "weekly", or "monthly"');
+    }
+
+    // Create cron expression based on frequency
+    let cronExpression;
+    switch (frequency.toLowerCase()) {
+      case 'daily':
+        cronExpression = `${minute} ${hour} * * *`; // Every day at specified time
+        break;
+      case 'weekly':
+        const dayOfWeek = schedulingStartDate.getDay(); // 0=Sunday, 1=Monday, etc.
+        cronExpression = `${minute} ${hour} * * ${dayOfWeek}`; // Same day of week
+        break;
+      case 'monthly':
+        const dayOfMonth = schedulingStartDate.getDate();
+        cronExpression = `${minute} ${hour} ${dayOfMonth} * *`; // Same day of month
+        break;
+    }
 
     let currentLessonIndex = 0;
     const totalLessons = course.lessons.length;
 
+    // Check if we should start scheduling now or wait for start date
+    const now = new Date();
+    const shouldStartNow = schedulingStartDate <= now;
+
     // Schedule the cron job
     const scheduledTask = cron.schedule(cronExpression, async () => {
+      // Check if we've reached the start date
+      const currentDate = new Date();
+      if (currentDate < schedulingStartDate) {
+        console.log(`⏳ Waiting for start date: ${schedulingStartDate.toDateString()}`);
+        return;
+      }
+
       if (currentLessonIndex >= totalLessons) {
-        console.log(`All lessons for course "${course.name}" have been sent. Stopping scheduler.`);
+        console.log(`✅ All lessons for course "${course.name}" have been sent. Stopping scheduler.`);
         scheduledTask.stop();
         return;
       }
 
       const lesson = course.lessons[currentLessonIndex];
-      console.log(`Sending lesson ${currentLessonIndex + 1}/${totalLessons}: "${lesson.title}" at ${new Date().toLocaleString()}`);
+      const frequencyEmoji = frequency === 'daily' ? '📅' : frequency === 'weekly' ? '📆' : '🗓️';
+      console.log(`${frequencyEmoji} Sending ${frequency} lesson ${currentLessonIndex + 1}/${totalLessons}: "${lesson.title}" at ${new Date().toLocaleString()}`);
 
       // Send lesson to all numbers
       for (const phoneNumber of numbers) {
         try {
-          await sendTextMessage(phoneNumber, `📚 Daily Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
+          const lessonTypeText = frequency === 'daily' ? 'Daily' : frequency === 'weekly' ? 'Weekly' : 'Monthly';
+          await sendTextMessage(phoneNumber, `📚 ${lessonTypeText} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
+          await delay(3000);
+          await sendTemplateMessage(phoneNumber, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Start");
+          await delay(6000);
           
           if (lesson.quiz) {
             await sendInteractiveMessage(
               phoneNumber, 
-              lesson.title, 
-              lesson.content, 
               lesson.quiz.question, 
               lesson.quiz.options
-            );
-          } else {
-            await sendInteractiveMessage(
-              phoneNumber, 
-              lesson.title, 
-              lesson.content, 
-              null, 
-              []
             );
           }
           
@@ -95,16 +131,20 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "08:00", timezo
       timezone: timezone
     });
 
-    console.log(`📅 Lessons scheduled for course "${course.name}" at ${scheduleTime} daily (${timezone})`);
+    const frequencyEmoji = frequency === 'daily' ? '📅' : frequency === 'weekly' ? '📆' : '🗓️';
+    console.log(`${frequencyEmoji} Lessons scheduled for course "${course.name}" at ${scheduleTime} ${frequency} (${timezone})`);
     console.log(`📊 Total lessons to send: ${totalLessons}`);
+    console.log(`🚀 Start date: ${schedulingStartDate.toDateString()}`);
     console.log(`⏰ Next lesson will be sent: ${scheduledTask.nextDate().toLocaleString()}`);
 
     return {
       success: true,
-      message: `Scheduled ${totalLessons} lessons for daily delivery at ${scheduleTime}`,
+      message: `Scheduled ${totalLessons} lessons for ${frequency} delivery at ${scheduleTime}`,
       courseId: courseId,
       totalLessons: totalLessons,
       scheduleTime: scheduleTime,
+      startDate: schedulingStartDate.toISOString().split('T')[0],
+      frequency: frequency,
       timezone: timezone,
       nextExecution: scheduledTask.nextDate().toISOString()
     };
@@ -123,7 +163,7 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "08:00", timezo
  * @param {Array} lessonsData - Array of lesson objects: { title, content, day, quiz }
  * @param {Array} numbers - Array of WhatsApp numbers to notify
  */
-const createCourse = async (numbers, courseData, lessonsData) => {
+const createCourse = async (numbers, courseData, lessonsData, scheduleTime, startDate, frequency) => {
     try {
         const course = await prisma.course.create({
             data: {
@@ -180,35 +220,28 @@ const createCourse = async (numbers, courseData, lessonsData) => {
 
         // Notify all numbers about the new course
         for (const to of numbers) {
-          await sendTemplateMessage(to, 'new_courses', 'en', { header: [courseData.name], body: [courseData.description] });
-          await delay(3000);
+          await sendTemplateMessage(to, 'new_courses', 'en', { header: [courseData.name], body: [courseData.description] }, "Start");
+          await delay(5000);
 
           if (courseData.coverImage) await sendImageMessage(to, courseData.coverImage);
           await delay(3000);
 
           for (const lesson of lessonsData) {
+            await sendTemplateMessage(to, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Done");
+            await delay(6000);
             if (lesson.quiz) {
               await sendInteractiveMessage(
                 to, 
-                lesson.title, 
-                lesson.content, 
                 lesson.quiz.question, 
                 lesson.quiz.options
               );
-            } else {
-              await sendInteractiveMessage(
-                to, 
-                lesson.title, 
-                lesson.content, 
-                null, 
-                []
-              );
+              await delay(3000);
             }
           }
           
           // SCHEDULE FEATURE: Send lessons at specified times instead of immediately
           // This replaces the immediate lesson sending with scheduled delivery
-          //await scheduleLessons(course.id, numbers);
+          await scheduleLessons(course.id, numbers, scheduleTime, startDate, frequency);
         }
 
         return { course, lessons, quizzes, enrollments };

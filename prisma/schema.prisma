@@ -29,17 +29,19 @@ model Admin {
 }
 
 model Learner {
-  id           Int           @id @default(autoincrement())
-  name         String
-  surname      String
-  email        String        @unique
-  number       String
-  department   Department?
-  company      String 
-  enrollments  Enrollment[] // ✅ Now a real relation
-  progress     Progress[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id              Int                @id @default(autoincrement())
+  active          Boolean            @default(false)
+  name            String
+  surname         String
+  email           String             @unique
+  number          String
+  department      Department?
+  company         String 
+  enrollments     Enrollment[]       // Course enrollments
+  courseProgress  CourseProgress[]   // Overall course progress
+  lessonProgress  LessonProgress[]   // Individual lesson progress
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 
@@ -50,16 +52,17 @@ enum Department {
 }
 
 model Course {
-  id           Int           @id @default(autoincrement())
-  name         String
-  description  String
-  coverImage   String?
-  admin        Admin         @relation(fields: [adminId], references: [id])
-  adminId      Int
-  lessons      Lesson[]      
-  enrollments  Enrollment[]  
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             Int               @id @default(autoincrement())
+  name           String
+  description    String
+  coverImage     String?
+  admin          Admin             @relation(fields: [adminId], references: [id])
+  adminId        Int
+  lessons        Lesson[]      
+  enrollments    Enrollment[]  
+  courseProgress CourseProgress[]  // Track learner progress in this course
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }
 
 
@@ -71,7 +74,7 @@ model Lesson {
   courseId    Int
   quiz        Quiz?     
   day         Int       // Day in course (e.g., 1, 2, 3)
-  progress    Progress[]
+  lessonProgress    LessonProgress[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -83,10 +86,29 @@ model Quiz {
   question    String
   options     Json      // Store options as JSON array, e.g., ["A", "B", "C"]
   correctOption String
-  responses   Progress[]
+  lessonProgress   LessonProgress[]
 }
 
-model Progress {
+// Track overall course progress for each learner
+model CourseProgress {
+  id              Int       @id @default(autoincrement())
+  learnerId       Int
+  courseId        Int
+  learner         Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  totalLessons    Int       // Total lessons in the course
+  completedLessons Int      @default(0) // Number of completed lessons
+  progressPercent Float     @default(0) // Calculated percentage (0-100)
+  startedAt       DateTime  @default(now())
+  lastActivityAt  DateTime  @updatedAt
+  isCompleted     Boolean   @default(false) // True when all lessons completed
+  completedAt     DateTime? // When course was fully completed
+
+  @@unique([learnerId, courseId]) // One progress record per learner per course
+}
+
+// Track individual lesson progress for detailed tracking
+model LessonProgress {
   id          Int       @id @default(autoincrement())
   learnerId   Int
   lessonId    Int
@@ -97,9 +119,9 @@ model Progress {
   completed   Boolean   @default(false)
   quizAnswer  String?
   isCorrect   Boolean?
-  completedAt DateTime? @default(now())
-
-  @@unique([learnerId, lessonId]) // ✅ One progress per lesson
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  @@unique([learnerId, lessonId]) // One progress per lesson per learner
 }
 
 

@@ -1,8 +1,8 @@
 const courseService = require('../services/courseService');
 const createCourse = async (request, response) => {
-    const {courseData, lessonsData, numbers} = request.body;
+    const {numbers, courseData, lessonsData, scheduleTime, startDate, frequency} = request.body;
     try {
-        const createdCourse = await courseService.createCourse(numbers, courseData, lessonsData);
+        const createdCourse = await courseService.createCourse(numbers, courseData, lessonsData, scheduleTime, startDate, frequency);
         response.status(200).json(createdCourse);
     } catch (error) {
         response.status(500).json({error: error.message});

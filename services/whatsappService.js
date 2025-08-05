@@ -56,7 +56,7 @@ const sendTextMessage = async (to, message) => {
 }
 
 // Send a template message
-const sendTemplateMessage = async (to, templateName, languageCode, parameters) => {
+const sendTemplateMessage = async (to, templateName, languageCode, parameters, quickReply) => {
   const { header = [], body = [] } = parameters;
   
   try {
@@ -82,6 +82,20 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters) =
           type: 'text',
           text: param
         }))
+      });
+    }
+
+    if (quickReply.length > 0) {
+      components.push({
+        "type": "button",
+        "sub_type": "quick_reply",
+        "index": "0",
+        "parameters": [
+          {
+            "type": "payload",
+            "payload": quickReply
+          }
+        ]
       });
     }
 
@@ -168,7 +182,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters) =
 }
 
 // Send interactive button message
-const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, options) => {
+const sendInteractiveMessage = async (to, quizQuestion, options) => {
   try {
     const payload = {
       messaging_product: 'whatsapp',
@@ -178,22 +192,16 @@ const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, opt
         type: 'button',
         header: {
           type:"text",
-          text: bodyTitle
+          text: "Quiz"
         },
         body: {
-          text: bodyText
+          text: quizQuestion
         },
         footer: {
-          text: quizQuestion? quizQuestion : null
+          text: "Pick the correct option to answer the question"
         },
         action: {
-          buttons: options.length === 0 ? [{
-            type: 'reply',
-            reply: {
-              id: 'done',
-              title: 'Done'
-            }
-          }] : options.slice(0, 3).map((option, index) => {
+          buttons: options.slice(0, 3).map((option, index) => {
             // Truncate option text to max 20 characters for WhatsApp button title
             const truncatedTitle = option.length > 20 ? option.substring(0, 17) + '...' : option;
             return {
@@ -218,8 +226,8 @@ const sendInteractiveMessage = async (to, bodyTitle, bodyText, quizQuestion, opt
           messageId: response.data.messages[0].id,
           from: "zenolearn",
           to: response.data.contacts[0].wa_id,
-          body: quizQuestion? quizQuestion : `No quiz for lesson: ${bodyTitle}`,
-          type: "lesson & question",
+          body: quizQuestion,
+          type: "quiz",
           direction: "outgoing",
           localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
         }

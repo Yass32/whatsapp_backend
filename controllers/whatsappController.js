@@ -71,17 +71,17 @@ const sendImageMessage = async (request, response) => {
 }
 
 const sendInteractiveMessage = async (request, response) => {
-  const { to, bodyTitle, bodyText, quizQuestion, options } = request.body;
+  const { to, quizQuestion, options } = request.body;
   try {
     // Validation
-    if (!to || !bodyTitle) {
+    if (!to || !quizQuestion) {
       return response.status(400).json({
         error: 'Bad Request',
-        message: 'Both "to" and "lessonTitle" fields are required'
+        message: 'Both "to" and "quizQuestion" fields are required'
       });
     }
 
-    const result = await whatsappService.sendInteractiveMessage(to, bodyTitle, bodyText, quizQuestion, options);
+    const result = await whatsappService.sendInteractiveMessage(to, quizQuestion, options);
     response.status(200).json({
       success: true,
       message: 'Interactive message sent successfully',
