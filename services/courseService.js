@@ -1,9 +1,13 @@
 const { PrismaClient } = require('../generated/prisma');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
-const bcrypt = require('bcrypt');
-const jwt = require("jsonwebtoken");
+const cronParser = require('cron-parser');
+const { parseExpression } = cronParser;
+
+
+//const cronParser = require('cron-parser');
 const cron = require('node-cron');
-const {sendTextMessage, sendImageMessage, sendTemplateMessage, sendInteractiveMessage} = require('../services/whatsappService')
+const {sendTextMessage, sendImageMessage, sendTemplateMessage, sendInteractiveMessage} = require('../services/whatsappService');
+const {storeMessageContext} = require('../services/webhookService');
 
 const prisma = new PrismaClient().$extends(withAccelerate());
 
@@ -99,24 +103,25 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startD
       }
 
       const lesson = course.lessons[currentLessonIndex];
-      const frequencyEmoji = frequency === 'daily' ? '📅' : frequency === 'weekly' ? '📆' : '🗓️';
-      console.log(`${frequencyEmoji} Sending ${frequency} lesson ${currentLessonIndex + 1}/${totalLessons}: "${lesson.title}" at ${new Date().toLocaleString()}`);
+      console.log(`Sending ${frequency} lesson ${currentLessonIndex + 1}/${totalLessons}: "${lesson.title}" at ${new Date().toLocaleString()}`);
 
       // Send lesson to all numbers
       for (const phoneNumber of numbers) {
         try {
-          const lessonTypeText = frequency === 'daily' ? 'Daily' : frequency === 'weekly' ? 'Weekly' : 'Monthly';
-          await sendTextMessage(phoneNumber, `📚 ${lessonTypeText} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
+          await sendTextMessage(phoneNumber, `📚 ${frequency} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
           await delay(3000);
-          await sendTemplateMessage(phoneNumber, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Start");
+
+          const response = await sendTemplateMessage(phoneNumber, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Done");
+          await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
           await delay(6000);
           
           if (lesson.quiz) {
-            await sendInteractiveMessage(
+            const response2 = await sendInteractiveMessage(
               phoneNumber, 
               lesson.quiz.question, 
               lesson.quiz.options
             );
+            await storeMessageContext(phoneNumber, response2.messageId, course.id, lesson.id, lesson.quiz.id);
           }
           
           console.log(`✅ Lesson sent to ${phoneNumber}`);
@@ -131,11 +136,20 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startD
       timezone: timezone
     });
 
-    const frequencyEmoji = frequency === 'daily' ? '📅' : frequency === 'weekly' ? '📆' : '🗓️';
-    console.log(`${frequencyEmoji} Lessons scheduled for course "${course.name}" at ${scheduleTime} ${frequency} (${timezone})`);
+    // Compute next execution date correctly
+    let nextExecution;
+    try {
+      const interval = parseExpression(cronExpression, { currentDate: new Date(), tz: timezone });
+      nextExecution = interval.next().toDate();
+    } catch (err) {
+      console.error("Failed to parse next cron execution:", err.message);
+      nextExecution = schedulingStartDate;
+    }
+
+    console.log(`📅 Lessons scheduled for course "${course.name}" at ${scheduleTime} ${frequency} (${timezone})`);
     console.log(`📊 Total lessons to send: ${totalLessons}`);
     console.log(`🚀 Start date: ${schedulingStartDate.toDateString()}`);
-    console.log(`⏰ Next lesson will be sent: ${scheduledTask.nextDate().toLocaleString()}`);
+    console.log(`⏰ Next lesson will be sent: ${nextExecution.toLocaleString()}`);
 
     return {
       success: true,
@@ -146,7 +160,7 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startD
       startDate: schedulingStartDate.toISOString().split('T')[0],
       frequency: frequency,
       timezone: timezone,
-      nextExecution: scheduledTask.nextDate().toISOString()
+      nextExecution: nextExecution.toISOString()
     };
 
   } catch (error) {
@@ -171,6 +185,7 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
                 description: courseData.description,
                 coverImage: courseData.coverImage ? courseData.coverImage : null,
                 adminId: courseData.adminId,
+                totalLessons: lessonsData.length,
             },
         });
 
@@ -219,13 +234,16 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
         );
 
         // Notify all numbers about the new course
+        
         for (const to of numbers) {
-          await sendTemplateMessage(to, 'new_courses', 'en', { header: [courseData.name], body: [courseData.description] }, "Start");
+          const res = await sendTemplateMessage(to, 'new_courses', 'en', { header: [courseData.name], body: [courseData.description] }, "Start");
+          await storeMessageContext(to, res.messageId, course.id, null);
           await delay(5000);
 
           if (courseData.coverImage) await sendImageMessage(to, courseData.coverImage);
           await delay(3000);
 
+          /*
           for (const lesson of lessonsData) {
             await sendTemplateMessage(to, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Done");
             await delay(6000);
@@ -238,13 +256,14 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
               await delay(3000);
             }
           }
-          
-          // SCHEDULE FEATURE: Send lessons at specified times instead of immediately
-          // This replaces the immediate lesson sending with scheduled delivery
-          await scheduleLessons(course.id, numbers, scheduleTime, startDate, frequency);
+          */
         }
 
-        return { course, lessons, quizzes, enrollments };
+        // SCHEDULE FEATURE: Send lessons at specified times instead of immediately
+        // This replaces the immediate lesson sending with scheduled delivery
+        const scheduleLessonsResponse = await scheduleLessons(course.id, numbers, scheduleTime, startDate, frequency);
+
+        return { scheduleLessonsResponse, course, lessons, quizzes, enrollments };
     } catch (error) {
         throw new Error('Failed to create course: ' + error.message);
     }
@@ -261,9 +280,8 @@ const deleteAllCourses = async () => {
 
 
 module.exports = {
-    createCourse,
-    deleteAllCourses,
-    scheduleLessons,
+  createCourse,
+  deleteAllCourses,
 }
 
 /*
@@ -271,7 +289,7 @@ module.exports = {
   "courseData": {
     "name": "Introduction to Node.js",
     "description": "Learn the fundamentals of Node.js development",
-    "coverImage": "https://example.com/nodejs-cover.jpg",
+    "coverImage": "https://ofy.org/wp-content/uploads/2015/11/OFY-learning-to-learn-cover-photo.jpg",
     "adminId": 1
   },
   "lessonsData": [
@@ -302,20 +320,8 @@ module.exports = {
       // No quiz for this lesson
     }
   ],
-  "enrollmentsData": [
-    {
-      "learnerId": 2
-    },
-    {
-      "learnerId": 3
-    },
-    {
-      "learnerId": 4
-    }
-  ],
   "numbers": [
-    "+1234567890",
-    "+0987654321"
+    "+905359840140"
   ]
 }
   */

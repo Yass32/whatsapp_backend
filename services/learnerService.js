@@ -9,16 +9,16 @@ const createLearner = async (learnerData) => {
     const {name, surname, email, number, department, company} = learnerData;
     try {
         const newLearner = await prisma.learner.createMany({
-                data: {
-                  name,
-                  surname,
-                  email,
-                  number,
-                  department,
-                  company,
-                }
-            })
-            return newLearner;
+            data: {
+                name,
+                surname,
+                email,
+                number,
+                department,
+                company,
+            }
+        })
+        return newLearner;
       } catch (error) {
         console.error("Learner creation error:", error); 
         throw new Error('Failed to register learner');

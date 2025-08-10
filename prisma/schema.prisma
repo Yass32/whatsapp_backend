@@ -39,7 +39,6 @@ model Learner {
   company         String 
   enrollments     Enrollment[]       // Course enrollments
   courseProgress  CourseProgress[]   // Overall course progress
-  lessonProgress  LessonProgress[]   // Individual lesson progress
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -58,6 +57,7 @@ model Course {
   coverImage     String?
   admin          Admin             @relation(fields: [adminId], references: [id])
   adminId        Int
+  totalLessons   Int       // Total lessons in the course
   lessons        Lesson[]      
   enrollments    Enrollment[]  
   courseProgress CourseProgress[]  // Track learner progress in this course
@@ -86,7 +86,6 @@ model Quiz {
   question    String
   options     Json      // Store options as JSON array, e.g., ["A", "B", "C"]
   correctOption String
-  lessonProgress   LessonProgress[]
 }
 
 // Track overall course progress for each learner
@@ -96,7 +95,6 @@ model CourseProgress {
   courseId        Int
   learner         Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  totalLessons    Int       // Total lessons in the course
   completedLessons Int      @default(0) // Number of completed lessons
   progressPercent Float     @default(0) // Calculated percentage (0-100)
   startedAt       DateTime  @default(now())
@@ -105,23 +103,6 @@ model CourseProgress {
   completedAt     DateTime? // When course was fully completed
 
   @@unique([learnerId, courseId]) // One progress record per learner per course
-}
-
-// Track individual lesson progress for detailed tracking
-model LessonProgress {
-  id          Int       @id @default(autoincrement())
-  learnerId   Int
-  lessonId    Int
-  quizId      Int?
-  learner     Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  quiz        Quiz?     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  completed   Boolean   @default(false)
-  quizAnswer  String?
-  isCorrect   Boolean?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  @@unique([learnerId, lessonId]) // One progress per lesson per learner
 }
 
 
@@ -136,6 +117,22 @@ model Enrollment {
   @@unique([learnerId, courseId]) // prevent duplicate enrollments
 }
 
+model MessageContext {
+  id           Int       @id @default(autoincrement())
+  messageId    String    @unique
+  message      Message   @relation(fields: [messageId], references: [messageId])
+  phoneNumber  String
+  courseId     Int
+  course       Course    @relation(fields: [courseId], references: [id])
+  lessonId     Int?
+  lesson       Lesson?   @relation(fields: [lessonId], references: [id])
+  quizId       Int?
+  quiz         Quiz?     @relation(fields: [quizId], references: [id])
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime  // For automatic cleanup
+  @@index([phoneNumber])
+  @@index([courseId])
+}
 
 model Message {
   id           Int           @id @default(autoincrement())
