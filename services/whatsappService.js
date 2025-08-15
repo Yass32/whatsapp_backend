@@ -112,7 +112,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
       }
     };
     
-    console.log('Template payload:', JSON.stringify(payload, null, 2));
+    //console.log('Template payload:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(baseUrl, payload, {
       headers: headers
@@ -244,9 +244,75 @@ const sendInteractiveMessage = async (to, quizQuestion, options) => {
   }
 }
 
+// Send an interactive list message
+const sendInteractiveListMessage = async (to, quizQuestion, options) => {
+  try {
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        header: {
+          type: 'text',
+          text: "Quiz"
+        },
+        body: {
+          text: quizQuestion
+        },
+        footer: {
+          text: "Zenolearn"
+        },
+        action: {
+          button: "Select an option",
+          sections: [
+            { 
+              title: "Choose one",
+              rows: options.map((option, index) => {
+                const truncatedOption = option.length > 24 ? option.substring(0, 22) + '..' : option;
+                return {
+                  id: `option_${index}`,
+                  title: truncatedOption
+                };
+              })
+            }
+          ]
+        }
+      }
+    };
+
+    const response = await axios.post(baseUrl, payload, {
+      headers: headers
+    });
+
+    try {
+      const listMessage = await prisma.message.create({
+        data: {
+          messageId: response.data.messages[0].id,
+          from: "zenolearn",
+          to: response.data.contacts[0].wa_id,
+          body: quizQuestion,
+          type: "interactive_list",
+          direction: "outgoing",
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC +3
+        }
+      });
+      return listMessage;
+    } catch (error) {
+      console.error('Error logging list message:', error);
+      throw new Error('Failed to log interactive list message');
+    }
+
+  } catch (error) {
+    console.error('Error sending list message:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   sendTextMessage,
   sendTemplateMessage,
   sendImageMessage,
-  sendInteractiveMessage
+  sendInteractiveMessage,
+  sendInteractiveListMessage
 }

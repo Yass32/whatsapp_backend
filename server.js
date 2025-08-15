@@ -8,6 +8,7 @@ const userRoutes = require('./routes/userRoute');
 const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
 const courseRoute = require('./routes/courseRoute');
+const { scheduleAutomaticCleanup } = require('./services/cleanupService');
 const ngrok = require('@ngrok/ngrok');
 
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,9 @@ app.use('/api/v1/courses', courseRoute);
 
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+  
+  // Start automatic cleanup scheduler
+  scheduleAutomaticCleanup();
 
   try {
     const listener = await ngrok.connect({

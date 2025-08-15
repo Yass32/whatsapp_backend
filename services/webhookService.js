@@ -3,6 +3,7 @@ const { PrismaClient } = require('../generated/prisma');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
 const { sendTextMessage } = require('./whatsappService');
 
+
 const prisma = new PrismaClient().$extends(withAccelerate())
 
 const formattedDate = (timestamp) => {
@@ -84,12 +85,12 @@ const handleIncomingMessages = async (messages, name) => {
                     from: messages.context?.from,
                     context: messages.context?.id,
                 }
-                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context.id);
+                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
                 await handleQuickReply(from, messageBody, messages.context);
                 break;
             case 'text':
                 messageBody = messages.text?.body || '';
-                //await logMessageAndContext(id, from, messageBody, type, timestamp, courseId, lessonId, quizId);
+                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
                 break;
             case 'image':
                 messageBody = '[Image]';
@@ -98,7 +99,8 @@ const handleIncomingMessages = async (messages, name) => {
                     mimeType: messages.image?.mime_type,
                     caption: messages.image?.caption
                 };
-                //await logMessageAndContext(id, from, messageBody, type, timestamp, courseId, lessonId, quizId);
+                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
+
                 break;
             case 'document':
                 messageBody = '[Document]';
@@ -107,17 +109,16 @@ const handleIncomingMessages = async (messages, name) => {
                     filename: messages.document?.filename,
                     mimeType: messages.document?.mime_type
                 };
-                //await logMessageAndContext(id, from, messageBody, type, timestamp, courseId, lessonId, quizId);
+                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
                 break;
             case 'interactive':
-                messageBody = messages.interactive?.button_reply.title;
+                messageBody = messages.interactive?.list_reply?.title || messages.interactive?.button_reply?.title;
                 extraData = {
                     interactiveType: messages.interactive?.type,
-                    buttonReply: messages.interactive?.button_reply,
-                    listReply: messages.interactive?.list_reply
+                    reply: messages.interactive?.list_reply || messages.interactive?.button_reply
                 };
-                //await logMessageAndContext(id, from, messageBody, type, timestamp, courseId, lessonId, quizId);
-                //await handleQuizReply(from, messageBody);
+                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
+                await handleQuickReply(from, messageBody, messages.context);
                 break;
             default:
                 messageBody = '[Unsupported message type]';
@@ -133,35 +134,17 @@ const handleIncomingMessages = async (messages, name) => {
             timestamp: formattedDate(timestamp)
         };
 
-        try {
-            await prisma.message.create({
-                data: {
-                    messageId: id,
-                    from: from,
-                    to: "zenolearn",
-                    body: messageBody,
-                    type: type,
-                    direction: "incoming",
-                    status: "received",
-                    localtime: new Date(parseInt(timestamp) * 1000 + (3 * 60 * 60 * 1000)) //UTC +3
-                }
-            });
-            // Note: MessageContext is only created for outgoing messages, not incoming ones
-            // Incoming messages don't need context since they are responses to our messages
-        } catch (error) {
-            throw new Error('Failed to log incoming message');
-        }
-
         return result;
     } catch (error) {
         console.error('Webhook receiving message error:', error);
-        throw error;
     }
 };
 
 
 
-const handleQuickReply = async (messageBody, context, from) => {
+const handleQuickReply = async (from, messageBody, context) => {
+    const { updateCourseProgress } = require('./courseService');
+
     // context.id contains the message ID being replied to
     const repliedToMessageId = context.id;
         
@@ -173,7 +156,7 @@ const handleQuickReply = async (messageBody, context, from) => {
     
     if (messageContext) {
         // Now you know which course/lesson this is about
-        const { courseId } = messageContext;
+        const { courseId, lessonId } = messageContext;
         
         if(messageBody === "Start"){
             try {
@@ -181,73 +164,34 @@ const handleQuickReply = async (messageBody, context, from) => {
                     where: { number: from },
                     data: { active: true }
                 });
-                if (!setActiveLearner) {
-                    throw new Error('Learner not found');
+                
+                if (setActiveLearner.count === 0) {
+                    console.warn(`⚠️  No learner found with number: ${from}`);
+                    await sendTextMessage(from, "Sorry, we couldn't find your registration. Please contact support.");
+                    return;
+                } else {
+                    console.log(`✅ Activated learner with number: ${from} (${setActiveLearner.count} record(s) updated)`);
                 }
             } catch (error) {
-                console.error('Failed to find learner:', error);
+                console.error('Failed to activate learner:', error);
+                await sendTextMessage(from, "Sorry, there was an error activating your account. Please try again.😞");
+                return;
             }  
-            await sendTextMessage(from, "Thank you for enrolling in our course. We will notify you when the course starts.");
+            await sendTextMessage(from, "Thank you for enrolling in our course. We will notify you when the course starts.🙏");
         }
         else if (messageBody === "Done") {
-            await updateCourseProgress(from, courseId);
+            await updateCourseProgress(from, courseId, lessonId);
             await sendTextMessage(from, "Great job completing this lesson! 🎉");
+        } 
+        else {
+            const {progress, correct} = await updateCourseProgress(from, courseId, lessonId, messageBody);
+            if (correct !== null) {
+                await sendTextMessage(from, "Correct! Keep it up! 👏🎉");
+            } else {
+                await sendTextMessage(from,`Wrong ❌, the correct answer is ${correct}. Better luck next time!`);
+            }
         }
     }
-}
-
-const updateCourseProgress = async (phoneNumber, courseId) => {
-    // Find the learner
-    const learner = await prisma.learner.findUnique({
-      where: { number: phoneNumber }
-    });
-    
-    if (!learner) return;
-    
-    // Get or create course progress
-    let progress = await prisma.courseProgress.findUnique({
-      where: {
-        learnerId_courseId: {
-          learnerId: learner.id,
-          courseId: courseId
-        }
-      }
-    });
-    
-    if (!progress) {
-      // Create new progress if it doesn't exist
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        include: { _count: { select: { lessons: true } } }
-      });
-      
-      progress = await prisma.courseProgress.create({
-        data: {
-          learnerId: learner.id,
-          courseId: courseId,
-          totalLessons: course._count.lessons,
-          completedLessons: 1,
-          progressPercent: Math.round((1 / course._count.lessons) * 100)
-        }
-      });
-    } else {
-      // Update existing progress
-      progress = await prisma.courseProgress.update({
-        where: { id: progress.id },
-        data: {
-          completedLessons: { increment: 1 },
-          progressPercent: Math.round(
-            ((progress.completedLessons + 1) / progress.totalLessons) * 100
-          ),
-          isCompleted: progress.completedLessons + 1 >= progress.totalLessons,
-          completedAt: progress.completedLessons + 1 >= progress.totalLessons 
-            ? new Date() 
-            : null
-        }
-      });
-    }
-    
-    return progress;
 }
 
 
@@ -266,40 +210,80 @@ const logMessageAndContext = async(id, from, messageBody, type, timestamp, conte
             }
         });
 
-        // Find the original message context using the contextMessageId
-        const originalMessageContext = await prisma.messageContext.findUnique({
-            where: { messageId: contextMessageId }
-        });
-        
-        if (!originalMessageContext) {
-            console.warn('Original message context not found for:', contextMessageId);
-            return; // Don't throw error, just log warning
-        }    
-        
-        const { courseId, lessonId, quizId } = originalMessageContext;
-        
-        // Store the message context for this reply
-        await prisma.messageContext.create({
-            data: {
-                messageId: id,
-                phoneNumber: from,
-                courseId: courseId,
-                lessonId: lessonId,
-                quizId: quizId,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Expires in 7 days
+        // If this message is a reply to another message, find the original context
+        if (contextMessageId) {
+            // Find the original message context using the contextMessageId
+            const originalMessageContexts = await prisma.messageContext.findMany({
+                where: { messageId: contextMessageId, phoneNumber: from },
+                include: {
+                    course: true,
+                    lesson: true,
+                    quiz: true
+                },
+                take: 1
+            });
+            
+            if (originalMessageContexts && originalMessageContexts.length > 0) {
+                const originalContext = originalMessageContexts[0];
+                const { courseId, lessonId, quizId, course, lesson, quiz } = originalContext;
+                
+                // Log the context information
+                console.log(`💬 Reply received for:`);
+                console.log(`   Course: ${course?.name || 'Unknown'} (ID: ${courseId})`);
+                if (lesson) console.log(`   Lesson: ${lesson?.title} (ID: ${lessonId})`);
+                if (quiz) console.log(`   Quiz: ${quiz?.question.substring(0, 50)}... (ID: ${quizId})`);
+                console.log(`   From: ${from}`);
+                console.log(`   Message: ${messageBody}`);
+                
+                // Store the message context for this reply
+                /*
+                await prisma.messageContext.create({
+                    data: {
+                        messageId: id,
+                        phoneNumber: from,
+                        courseId: courseId,
+                        lessonId: lessonId,
+                        quizId: quizId,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Expires in 7 days
+                    }
+                });
+                */
+                
+                // Return the context information for further processing
+                return {
+                    hasContext: true,
+                    courseId,
+                    lessonId,
+                    quizId,
+                    course,
+                    lesson,
+                    quiz
+                };
+            } else {
+                console.warn('⚠️  Original message context not found for:', contextMessageId);
+                return { hasContext: false };
             }
-        });
+        } else {
+            console.log('💬 Message is not a reply to any previous message');
+            return { hasContext: false };
+        }
     } catch (error) {
         console.error('Failed to log incoming message:', error);
-        throw new Error('Failed to log incoming message');
     }
 }
 
 const deleteAllMessages = async () => {
     try {
-        return prisma.message.deleteMany({});
+        // Delete MessageContext records first to avoid foreign key constraint violations
+        await prisma.messageContext.deleteMany({});
+        
+        // Then delete all messages
+        const result = await prisma.message.deleteMany({});
+        
+        console.log(`✅ Deleted ${result.count} messages and their contexts`);
+        return result;
     } catch (error) {
-        throw new Error('Failed to delete messages');
+        console.error('Failed to delete messages:', error);
     }
 }
 
@@ -320,7 +304,6 @@ const storeMessageContext = async (phoneNumber, messageId, courseId, lessonId = 
         console.log(`✅ Message context stored for ${messageId}`);
     } catch (error) {
         console.error('Failed to store message context:', error);
-        throw error;
     }
 };
 

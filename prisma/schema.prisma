@@ -57,10 +57,12 @@ model Course {
   coverImage     String?
   admin          Admin             @relation(fields: [adminId], references: [id])
   adminId        Int
-  totalLessons   Int       // Total lessons in the course
-  lessons        Lesson[]      
+  totalLessons   Int               @default(0)// Total lessons in the course
+  totalQuizzes   Int               @default(0)// Total quizzes in the course
+  lessons        Lesson[]   
   enrollments    Enrollment[]  
   courseProgress CourseProgress[]  // Track learner progress in this course
+  messageContexts MessageContext[] // Messages related to this course
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 }
@@ -74,7 +76,7 @@ model Lesson {
   courseId    Int
   quiz        Quiz?     
   day         Int       // Day in course (e.g., 1, 2, 3)
-  lessonProgress    LessonProgress[]
+  messageContexts MessageContext[] // Messages related to this lesson
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -86,6 +88,7 @@ model Quiz {
   question    String
   options     Json      // Store options as JSON array, e.g., ["A", "B", "C"]
   correctOption String
+  messageContexts MessageContext[] // Messages related to this quiz
 }
 
 // Track overall course progress for each learner
@@ -97,6 +100,7 @@ model CourseProgress {
   course          Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   completedLessons Int      @default(0) // Number of completed lessons
   progressPercent Float     @default(0) // Calculated percentage (0-100)
+  quizScore       Float     @default(0) // Calculated percentage (0-100)
   startedAt       DateTime  @default(now())
   lastActivityAt  DateTime  @updatedAt
   isCompleted     Boolean   @default(false) // True when all lessons completed
@@ -123,11 +127,11 @@ model MessageContext {
   message      Message   @relation(fields: [messageId], references: [messageId])
   phoneNumber  String
   courseId     Int
-  course       Course    @relation(fields: [courseId], references: [id])
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessonId     Int?
-  lesson       Lesson?   @relation(fields: [lessonId], references: [id])
+  lesson       Lesson?   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   quizId       Int?
-  quiz         Quiz?     @relation(fields: [quizId], references: [id])
+  quiz         Quiz?     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   expiresAt    DateTime  // For automatic cleanup
   @@index([phoneNumber])
@@ -146,6 +150,7 @@ model Message {
   localtime    DateTime?      // When the message was sent/received (UTC+3)
   createdAt    DateTime      @default(now()) 
   updatedAt    DateTime      @updatedAt
+  messageContexts MessageContext[] // Messages can have multiple contexts
 }
 
 enum MessageStatus {

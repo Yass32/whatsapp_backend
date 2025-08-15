@@ -82,16 +82,18 @@ const deleteLearner = async (userId) => {
 } 
 
 const deleteAllLearners = async () => {
-      try {
-          const learner = await prisma.learner.deleteMany({})
-          if (!learner) {
-            throw new Error('learners not found');
-          }
-          return learner;
-      } catch (error) {
-          throw new Error('Failed to delete learners');
-      }
+  try {
+    // Use a transaction to ensure all or nothing is deleted
+    return await prisma.$transaction([
+      prisma.courseProgress.deleteMany({}),
+      prisma.enrollment.deleteMany({}),
+      prisma.learner.deleteMany({}),
+    ]);
+  } catch (error) {
+    console.error("Failed to delete all learners and their related data:", error);
+    throw error;
   }
+}; 
 
 
 module.exports = {
