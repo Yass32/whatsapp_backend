@@ -124,7 +124,7 @@ model Enrollment {
 model MessageContext {
   id           Int       @id @default(autoincrement())
   messageId    String    @unique
-  message      Message   @relation(fields: [messageId], references: [messageId])
+  message      Message   @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
   phoneNumber  String
   courseId     Int
   course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)

@@ -1,214 +1,294 @@
-const axios = require('axios');
-const { format } = require("date-fns");
-const { PrismaClient } = require('../generated/prisma');
-const { withAccelerate } = require('@prisma/extension-accelerate'); 
+/**
+ * WhatsApp Service Module
+ * 
+ * This module handles all WhatsApp Business API interactions including:
+ * - Sending text messages
+ * - Sending template messages with quick replies
+ * - Sending image messages
+ * - Sending interactive button and list messages
+ * - Logging all messages to database
+ * 
+ * @author Your Name
+ * @version 1.0.0
+ */
 
+// Import required dependencies
+const axios = require('axios'); // HTTP client for API requests
+const { format } = require("date-fns"); // Date formatting utility
+const { PrismaClient } = require('../generated/prisma'); // Database ORM client
+const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
+
+// Initialize Prisma client with acceleration for better performance
 const prisma = new PrismaClient().$extends(withAccelerate())
 
+// Extract WhatsApp API credentials from environment variables
 const {WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_API_URL} = process.env;
 
+// Construct the base URL for WhatsApp API messages endpoint
 const baseUrl = `${WHATSAPP_API_URL}/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-// Get headers for API requests
+// Define standard headers for all WhatsApp API requests
 const headers =  {
-      'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
+      'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`, // Bearer token for authentication
+      'Content-Type': 'application/json' // Specify JSON content type
 };
   
-// Send a simple text message
+/**
+ * Send a simple text message via WhatsApp Business API
+ * 
+ * @param {string} to - Recipient's WhatsApp number (with country code)
+ * @param {string} message - Text message content to send
+ * @returns {Object} Database record of the sent message
+ * @throws {Error} If message sending or logging fails
+ */
 const sendTextMessage = async (to, message) => {
       try {
+            // Construct the message payload according to WhatsApp API format
             const payload = {
-              messaging_product: 'whatsapp',
-              to: to,
-              type: 'text',
-              text: { body: message}
+              messaging_product: 'whatsapp', // Specify WhatsApp as the messaging product
+              to: to, // Recipient phone number
+              type: 'text', // Message type identifier
+              text: { body: message} // Message content wrapped in text object
             };
 
+            // Send POST request to WhatsApp API with message payload
             const response = await axios.post(baseUrl, payload, {
               headers: headers
             });
 
-
+            // Log the sent message to database for tracking and analytics
             try {
               const messageLog = await prisma.message.create({
                 data: {
-                  messageId: response.data.messages[0].id,
-                  from: "zenolearn",
-                  to: response.data.contacts[0].wa_id,
-                  body: message,
-                  type: "text",
-                  direction: "outgoing",
-                  localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
+                  messageId: response.data.messages[0].id, // WhatsApp message ID from response
+                  from: "zenolearn", // Sender identifier (our system)
+                  to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID from response
+                  body: message, // Message content
+                  type: "text", // Message type for database categorization
+                  direction: "outgoing", // Message direction (sent by us)
+                  localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // Convert to UTC+3 timezone
                 }
               })
-              return messageLog;
+              return messageLog; // Return database record for confirmation
 
             } catch (error) {
-              console.error(error)
-              throw new Error('Failed to log text message');
+              console.error(error) // Log database error
+              throw new Error('Failed to log text message'); // Throw user-friendly error
             }
             
       } catch (error) {
+          // Log detailed error information for debugging
           console.error('Error sending message:', error.response?.data || error.message);
-          throw error;
+          throw error; // Re-throw error for caller to handle
       }
 }
 
-// Send a template message
+/**
+ * Send a template message with dynamic parameters and optional quick reply button
+ * 
+ * Template messages are pre-approved message formats that can include:
+ * - Dynamic header text
+ * - Dynamic body text  
+ * - Quick reply buttons
+ * 
+ * @param {string} to - Recipient's WhatsApp number
+ * @param {string} templateName - Name of the approved template
+ * @param {string} languageCode - Language code (e.g., 'en', 'ar')
+ * @param {Object} parameters - Object containing header and body parameter arrays
+ * @param {string|Array} quickReply - Quick reply button text or array of buttons
+ * @returns {Object} Database record of the sent template message
+ * @throws {Error} If template sending or logging fails
+ */
 const sendTemplateMessage = async (to, templateName, languageCode, parameters, quickReply) => {
-  const { header = [], body = [] } = parameters;
+  // Safely extract header and body parameters with default empty arrays
+  const { header = [], body = [] } = parameters || {};
   
   try {
-    // Build components array properly
+    // Initialize components array to build template structure
     const components = [];
     
-    // Add header component if header parameters exist
+    // Add header component if header parameters are provided
     if (header.length > 0) {
       components.push({
-        type: 'header',
-        parameters: header.map(param => ({
-          type: 'text',
-          text: param
+        type: 'header', // Component type for template header
+        parameters: header.map(param => ({ // Map each header parameter
+          type: 'text', // Parameter type (text, image, etc.)
+          text: param // Actual parameter value
         }))
       });
     }
     
-    // Add body component if body parameters exist
+    // Add body component if body parameters are provided
     if (body.length > 0) {
       components.push({
-        type: 'body',
-        parameters: body.map(param => ({
-          type: 'text',
-          text: param
+        type: 'body', // Component type for template body
+        parameters: body.map(param => ({ // Map each body parameter
+          type: 'text', // Parameter type
+          text: param // Actual parameter value
         }))
       });
     }
 
+    // Add quick reply button if provided
     if (quickReply.length > 0) {
       components.push({
-        "type": "button",
-        "sub_type": "quick_reply",
-        "index": "0",
+        "type": "button", // Component type for button
+        "sub_type": "quick_reply", // Button subtype for quick replies
+        "index": "0", // Button index (for multiple buttons)
         "parameters": [
           {
-            "type": "payload",
-            "payload": quickReply
+            "type": "payload", // Parameter type for button payload
+            "payload": quickReply // Button text/payload
           }
         ]
       });
     }
 
+    // Construct the complete template message payload
     const payload = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'template',
+      messaging_product: 'whatsapp', // Specify WhatsApp as messaging product
+      to: to, // Recipient phone number
+      type: 'template', // Message type for templates
       template: {
-        name: templateName,
+        name: templateName, // Name of the pre-approved template
         language: {
-          code: languageCode ? languageCode : 'en'
+          code: languageCode ? languageCode : 'en' // Language code with English fallback
         },
-        components: components
+        components: components // Array of template components (header, body, buttons)
       }
     };
     
+    // Optional: Log payload for debugging (commented out for production)
     //console.log('Template payload:', JSON.stringify(payload, null, 2));
 
+    // Validate that required template information is present
+    if (!payload.template || !payload.template.name) {
+      throw new Error('Template name is required'); // Fail fast if template name missing
+    }
+
+    // Send the template message via WhatsApp API
     const response = await axios.post(baseUrl, payload, {
       headers: headers
     });
     
+    // Log the sent template message to database
     try {
       const message = await prisma.message.create({
         data: {
-          messageId: response.data.messages[0].id,
-          from: "zenolearn",
-          to: response.data.contacts[0].wa_id,
-          body: templateName,
-          type: "template",
-          direction: "outgoing",
-          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
+          messageId: response.data.messages[0].id, // WhatsApp message ID
+          from: "zenolearn", // Sender identifier
+          to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
+          body: templateName, // Store template name as message body
+          type: "template", // Message type for database categorization
+          direction: "outgoing", // Message direction
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
         }
       })
-      return message;
+      return message; // Return database record
     } catch (error) {
-      throw new Error('Failed to log template message');
+      throw new Error('Failed to log template message'); // Database logging error
     }
 
   } catch (error) {
+    // Log detailed error for debugging
     console.error('Error sending template message:', error.response?.data || error.message);
-    throw error;
+    throw error; // Re-throw for caller handling
   }
 }
 
 
-  // Send an image message
-  const sendImageMessage = async(to, imageUrl, caption) => {
+/**
+ * Send an image message with optional caption via WhatsApp Business API
+ * 
+ * @param {string} to - Recipient's WhatsApp number
+ * @param {string} imageUrl - URL of the image to send (must be publicly accessible)
+ * @param {string} caption - Optional caption text for the image
+ * @returns {Object} Database record of the sent image message
+ * @throws {Error} If image sending or logging fails
+ */
+const sendImageMessage = async(to, imageUrl, caption) => {
     try {
+      // Construct image message payload
       const payload = {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'image',
+        messaging_product: 'whatsapp', // Specify WhatsApp as messaging product
+        to: to, // Recipient phone number
+        type: 'image', // Message type for images
         image: {
-          link: imageUrl,
-          caption: caption? caption : null
+          link: imageUrl, // Public URL of the image
+          caption: caption? caption : null // Optional caption text
         }
       };
 
+      // Send image message via WhatsApp API
       const response = await axios.post(baseUrl, payload, {
         headers: headers
       });
 
+      // Log the sent image message to database
       try {
         const message = await prisma.message.create({
           data: {
-            messageId: response.data.messages[0].id,
-            from: "zenolearn",
-            to: response.data.contacts[0].wa_id,
-            body: imageUrl,
-            type: "image",
-            direction: "outgoing",
-            localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
+            messageId: response.data.messages[0].id, // WhatsApp message ID
+            from: "zenolearn", // Sender identifier
+            to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
+            body: imageUrl, // Store image URL as message body
+            type: "image", // Message type for database categorization
+            direction: "outgoing", // Message direction
+            localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
           }
         })
-        return message;
+        return message; // Return database record
       } catch (error) {
-        throw new Error('Failed to log image message');
+        throw new Error('Failed to log image message'); // Database logging error
       }
     } catch (error) {
+      // Log detailed error for debugging
       console.error('Error sending image message:', error.response?.data || error.message);
-      throw error;
+      throw error; // Re-throw for caller handling
     }
 }
 
-// Send interactive button message
+/**
+ * Send interactive button message for quiz questions
+ * 
+ * Creates a message with up to 3 clickable buttons for quiz options.
+ * WhatsApp limits interactive buttons to maximum 3 options.
+ * 
+ * @param {string} to - Recipient's WhatsApp number
+ * @param {string} quizQuestion - The quiz question text
+ * @param {Array} options - Array of answer options (max 3 will be used)
+ * @returns {Object} Database record of the sent interactive message
+ * @throws {Error} If message sending or logging fails
+ */
 const sendInteractiveMessage = async (to, quizQuestion, options) => {
   try {
+    // Construct interactive button message payload
     const payload = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'interactive',
+      messaging_product: 'whatsapp', // Specify WhatsApp as messaging product
+      to: to, // Recipient phone number
+      type: 'interactive', // Message type for interactive messages
       interactive: {
-        type: 'button',
+        type: 'button', // Interactive type for button messages
         header: {
-          type:"text",
-          text: "Quiz"
+          type:"text", // Header type
+          text: "Quiz" // Static header text
         },
         body: {
-          text: quizQuestion
+          text: quizQuestion // Main question text in body
         },
         footer: {
-          text: "Pick the correct option to answer the question"
+          text: "Pick the correct option to answer the question" // Instruction text
         },
         action: {
+          // Create buttons from options array (max 3 buttons allowed by WhatsApp)
           buttons: options.slice(0, 3).map((option, index) => {
-            // Truncate option text to max 20 characters for WhatsApp button title
+            // Truncate option text to max 20 characters for WhatsApp button title limit
             const truncatedTitle = option.length > 20 ? option.substring(0, 17) + '...' : option;
             return {
-              type: 'reply',
+              type: 'reply', // Button type for reply buttons
               reply: {
-                id: `option_${index}`,
-                title: truncatedTitle
+                id: `option_${index}`, // Unique identifier for this option
+                title: truncatedTitle // Button text (truncated if needed)
               }
             };
           })
@@ -216,63 +296,79 @@ const sendInteractiveMessage = async (to, quizQuestion, options) => {
       }
     };
 
+    // Send interactive message via WhatsApp API
     const response = await axios.post(baseUrl, payload, {
       headers: headers
     });    
     
+    // Log the sent interactive message to database
     try {
       const quiz = await prisma.message.create({
         data: {
-          messageId: response.data.messages[0].id,
-          from: "zenolearn",
-          to: response.data.contacts[0].wa_id,
-          body: quizQuestion,
-          type: "quiz",
-          direction: "outgoing",
-          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000))//UTC +3
+          messageId: response.data.messages[0].id, // WhatsApp message ID
+          from: "zenolearn", // Sender identifier
+          to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
+          body: quizQuestion, // Store question as message body
+          type: "quiz", // Message type for database categorization
+          direction: "outgoing", // Message direction
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
         }
       })
-      return quiz;
+      return quiz; // Return database record
     } catch (error) {
-      throw new Error('Failed to log interactive message');
+      throw new Error('Failed to log interactive message'); // Database logging error
     }
 
-
   } catch (error) {
+    // Log detailed error for debugging
     console.error('Error sending button message:', error.response?.data || error.message);
-    throw error;
+    throw error; // Re-throw for caller handling
   }
 }
 
-// Send an interactive list message
+/**
+ * Send interactive list message for quiz questions with multiple options
+ * 
+ * Creates a dropdown list message that can handle more than 3 options.
+ * Users tap a button to open the list and select their answer.
+ * 
+ * @param {string} to - Recipient's WhatsApp number
+ * @param {string} quizQuestion - The quiz question text
+ * @param {Array} options - Array of answer options (can be more than 3)
+ * @returns {Object} Database record of the sent interactive list message
+ * @throws {Error} If message sending or logging fails
+ */
 const sendInteractiveListMessage = async (to, quizQuestion, options) => {
   try {
+    // Construct interactive list message payload
     const payload = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'interactive',
+      messaging_product: 'whatsapp', // Specify WhatsApp as messaging product
+      to: to, // Recipient phone number
+      type: 'interactive', // Message type for interactive messages
       interactive: {
-        type: 'list',
+        type: 'list', // Interactive type for list messages
         header: {
-          type: 'text',
-          text: "Quiz"
+          type: 'text', // Header type
+          text: "Quiz" // Static header text
         },
         body: {
-          text: quizQuestion
+          text: quizQuestion // Main question text in body
         },
         footer: {
-          text: "Zenolearn"
+          text: "Zenolearn" // Footer branding text
         },
         action: {
-          button: "Select an option",
+          button: "Select an option", // Text shown on the list button
           sections: [
             { 
-              title: "Choose one",
+              title: "Choose one", // Section title within the list
+              // Map all options to list rows (no limit like buttons)
               rows: options.map((option, index) => {
+                // Truncate option text to max 24 characters for list display
                 const truncatedOption = option.length > 24 ? option.substring(0, 22) + '..' : option;
                 return {
-                  id: `option_${index}`,
-                  title: truncatedOption
+                  id: `option_${index}`, // Unique identifier for this option
+                  title: truncatedOption // Option text (truncated if needed)
                 };
               })
             }
@@ -281,38 +377,42 @@ const sendInteractiveListMessage = async (to, quizQuestion, options) => {
       }
     };
 
+    // Send interactive list message via WhatsApp API
     const response = await axios.post(baseUrl, payload, {
       headers: headers
     });
 
+    // Log the sent interactive list message to database
     try {
       const listMessage = await prisma.message.create({
         data: {
-          messageId: response.data.messages[0].id,
-          from: "zenolearn",
-          to: response.data.contacts[0].wa_id,
-          body: quizQuestion,
-          type: "interactive_list",
-          direction: "outgoing",
-          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC +3
+          messageId: response.data.messages[0].id, // WhatsApp message ID
+          from: "zenolearn", // Sender identifier
+          to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
+          body: quizQuestion, // Store question as message body
+          type: "interactive_list", // Message type for database categorization
+          direction: "outgoing", // Message direction
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
         }
       });
-      return listMessage;
+      return listMessage; // Return database record
     } catch (error) {
-      console.error('Error logging list message:', error);
-      throw new Error('Failed to log interactive list message');
+      console.error('Error logging list message:', error); // Log database error
+      throw new Error('Failed to log interactive list message'); // Database logging error
     }
 
   } catch (error) {
+    // Log detailed error for debugging
     console.error('Error sending list message:', error.response?.data || error.message);
-    throw error;
+    throw error; // Re-throw for caller handling
   }
 };
 
+// Export all WhatsApp service functions for use in other modules
 module.exports = {
-  sendTextMessage,
-  sendTemplateMessage,
-  sendImageMessage,
-  sendInteractiveMessage,
-  sendInteractiveListMessage
+  sendTextMessage, // Function to send simple text messages
+  sendTemplateMessage, // Function to send template messages with parameters
+  sendImageMessage, // Function to send image messages with optional captions
+  sendInteractiveMessage, // Function to send interactive button messages (max 3 options)
+  sendInteractiveListMessage // Function to send interactive list messages (unlimited options)
 }
