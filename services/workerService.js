@@ -1,11 +1,7 @@
 const { Worker } = require('bullmq');
 const whatsappService = require('./whatsappService');
 const { storeMessageContext } = require('./webhookService');
-
-const connection = {
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: process.env.REDIS_PORT || 6379,
-};
+const connection = require('../redis-connection');
 
 /**
  * Processes jobs for sending lessons.
@@ -62,15 +58,16 @@ const notificationProcessor = async (job) => {
 };
 
 // Create workers for each queue
-const lessonWorker = new Worker('lessonSender', lessonProcessor, { connection, limiter: { max: Number(process.env.SEND_MAX_PER_SEC ?? 10), duration: 1000 }, concurrency: Number(process.env.SEND_CONCURRENCY ?? 10) });
-const reminderWorker = new Worker('reminderSender', reminderProcessor, { connection, limiter: { max: Number(process.env.SEND_MAX_PER_SEC ?? 10), duration: 1000 }, concurrency: Number(process.env.SEND_CONCURRENCY ?? 10) });
-const notificationWorker = new Worker('notificationSender', notificationProcessor, { 
+
+const workerConnectionOptions = {
       connection,
-      // Global rate limit (tune to your WABA/number limits)
-      limiter: { max: Number(process.env.SEND_MAX_PER_SEC ?? 10), duration: 1000 },
       // Parallel workers
       concurrency: Number(process.env.SEND_CONCURRENCY ?? 10)
-});
+}
+
+const lessonWorker = new Worker('lessonSender', lessonProcessor, workerConnectionOptions);
+const reminderWorker = new Worker('reminderSender', reminderProcessor, workerConnectionOptions);
+const notificationWorker = new Worker('notificationSender', notificationProcessor, workerConnectionOptions);
 
 // Event listeners for logging
 [lessonWorker, reminderWorker, notificationWorker].forEach(worker => {
