@@ -10,53 +10,74 @@
 
 const { PrismaClient } = require('../generated/prisma');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
-const bcrypt = require('bcrypt'); // Imported but not used in current implementation
-
+const { welcomeQueue, addJobToQueue } = require('./queueService');
 // Initialize Prisma client with Accelerate extension for optimized queries
 const prisma = new PrismaClient().$extends(withAccelerate())
 
 
 /**
- * Create a new learner account in the system
+ * Create one or more new learner accounts in the system.
  * 
- * Registers a new student/learner who can enroll in courses and receive
- * WhatsApp-based learning content. Learners start as inactive and must
- * be activated through course enrollment.
+ * Registers new students/learners who can enroll in courses. This function
+ * is designed for bulk creation and uses `createMany` for efficiency.
  * 
- * @param {Object} learnerData - Learner registration data
- * @param {string} learnerData.name - Learner's first name
- * @param {string} learnerData.surname - Learner's last name
- * @param {string} learnerData.email - Learner's email address
- * @param {string} learnerData.number - Learner's WhatsApp phone number
- * @param {string} learnerData.department - Learner's department
- * @param {string} learnerData.company - Learner's company
- * @returns {Object} Created learner object
- * @throws {Error} If learner creation fails
+ * @param {Array<Object>} learnersData - An array of learner registration data objects.
+ * @param {string} learnersData[].name - Learner's first name.
+ * @param {string} learnersData[].surname - Learner's last name.
+ * @param {string} learnersData[].email - Learner's unique email address.
+ * @param {string} learnersData[].number - Learner's WhatsApp phone number.
+ * @param {string} learnersData[].department - Learner's department.
+ * @param {string} learnersData[].company - Learner's company.
+ * @returns {Object} An object containing the count of created learners.
+ * @throws {Error} If the bulk creation fails.
  */
-const createLearner = async (learnerData) => {
-    // Destructure learner data from request
-    const {name, surname, email, number, department, company} = learnerData;
-    
+const createLearner = async (learnersData) => {
     try {
-        // Create new learner record in database
-        const newLearner = await prisma.learner.create({
-            data: {
-                name,
-                surname,
-                email,
-                number, // WhatsApp phone number for messaging
-                department,
-                company,
-                // Note: active defaults to false, activated via course enrollment
-            }
+        // Find which learners are actually new
+        const incomingEmails = learnersData.map(learner => learner.email);
+        console.log(`Incoming emails: ${incomingEmails}`);
+        const existingLearners = await prisma.learner.findMany({
+            where: {
+                email: { in: incomingEmails },
+            },
+            select: {
+                email: true, // Select only the email for efficiency
+            },
         });
+        console.log(`Existing learners: ${existingLearners}`);
+        // Convert existing learners to a Set for O(1) lookups
+        // This is more efficient than using `includes` in a loop
+        const existingEmails = new Set(existingLearners.map(learner => learner.email));
+
+        // Filter out existing learners
+        const newLearnersData = learnersData.filter(learner => !existingEmails.has(learner.email));
+
+        console.log(`New learners: ${newLearnersData}`);
+
+        // If there are no new learners, return early
+        if (newLearnersData.length === 0) {
+            return { count: 0 };
+        }
+
+        // Create only the new learners
+        const result = await prisma.learner.createMany({
+            data: newLearnersData,
+        });
+
+        console.log(`Created ${result.count} new learners`);
+
+        // Queue welcome messages only for the newly created learners
+        for (const learner of newLearnersData) {
+            console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
+            addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
+        }
         
-        return newLearner; // Return created learner
+        return result; // Returns { count: <number of learners created> }
     } catch (error) {
         console.error("Learner creation error:", error); 
-        throw new Error('Failed to register learner'); // Generic error for security
+        throw new Error('Failed to register learners');
     }
-}
+};
 
 
 /**

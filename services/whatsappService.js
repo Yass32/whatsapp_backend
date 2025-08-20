@@ -129,18 +129,23 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
       });
     }
 
-    // Add quick reply button if provided
-    if (quickReply.length > 0) {
+    // Add quick reply buttons if provided and not empty
+    if (quickReply) {
+      const buttons = Array.isArray(quickReply) ? quickReply : [quickReply];
+      
       components.push({
-        "type": "button", // Component type for button
-        "sub_type": "quick_reply", // Button subtype for quick replies
-        "index": "0", // Button index (for multiple buttons)
-        "parameters": [
-          {
-            "type": "payload", // Parameter type for button payload
-            "payload": quickReply // Button text/payload
-          }
-        ]
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: '0',
+        parameters: buttons.map((button, index) => ({
+          type: 'payload',
+          payload: JSON.stringify({
+            button_reply: {
+              id: `${templateName.toLowerCase()}_${index}`,
+              title: button
+            }
+          })
+        }))
       });
     }
 

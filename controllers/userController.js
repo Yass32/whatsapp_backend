@@ -11,6 +11,9 @@
 const userService = require('../services/userService');
 const learnerService = require('../services/learnerService');
 
+// Valid departments for users
+const validDepartments = ['marketing', 'it', 'learning', 'other'];
+
 /**
  * Register a new admin user
  * 
@@ -26,8 +29,15 @@ const learnerService = require('../services/learnerService');
  */
 const registerUser = async (request, response) => {
     try {
+        const userData = request.body;
+        
+        // If department is provided and not valid, set to 'other'
+        if (userData.department && !validDepartments.includes(userData.department)) {
+            userData.department = 'other';
+        }
+
         // Call service layer to create new admin user
-        const newUser = await userService.registerNewUser(request.body);
+        const newUser = await userService.registerNewUser(userData);
         
         // Return success response with created user data
         response.status(201).json(newUser);
@@ -38,25 +48,39 @@ const registerUser = async (request, response) => {
 }
 
 /**
- * Register a new learner (student)
+ * Register one or more new learners (students).
  * 
- * Handles POST requests to create new learner accounts with:
- * - WhatsApp phone number for messaging
- * - Profile information for course enrollment
- * - Company and department details
+ * Handles POST requests to create new learner accounts in bulk.
+ * Expects a JSON object with a `learners` key containing an array of learner objects.
  * 
- * @param {Object} request - Express request object
- * @param {Object} request.body - Learner registration data
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with created learner or error
+ * @param {Object} request - Express request object.
+ * @param {Object} request.body - The request body, expected to have a `learners` array.
+ * @param {Array<Object>} request.body.learners - Array of learner registration data.
+ * @param {Object} response - Express response object.
+ * @returns {void} Sends a JSON response with the count of created learners or an error.
  */
 const registerLearner = async (request, response) => {
     try {
-        // Call service layer to create new learner
-        const newLearner = await learnerService.createLearner(request.body);
+        const { learners } = request.body;
+
+        // Basic validation
+        if (!learners || !Array.isArray(learners) || learners.length === 0) {
+            return response.status(400).json({ error: 'Request body must contain a non-empty array of learners.' });
+        }
+
+        // Validate department for each learner
+        const validatedLearners = learners.map(learner => {
+            if (learner.department && !validDepartments.includes(learner.department)) {
+                return { ...learner, department: 'other' };
+            }
+            return learner;
+        });
+
+        // Call service layer to create new learners in bulk
+        const result = await learnerService.createLearner(validatedLearners);
         
-        // Return success response with created learner data
-        response.status(201).json(newLearner);
+        // Return success response with the count of created learners
+        response.status(201).json(result);
     } catch (error) {
         // Return error response if registration fails
         response.status(500).json({ error: error.message });
@@ -290,6 +314,11 @@ const updateUser = async (request, response) => {
     // Extract user ID and update data
     const userId = request.params.id;
     const requestBody = request.body;
+
+    // If department is being updated, validate it
+    if (requestBody.department && !validDepartments.includes(requestBody.department)) {
+        requestBody.department = 'other';
+    }
     
     try {
         // Call service layer to update user
@@ -321,6 +350,11 @@ const updateLearner = async (request, response) => {
     // Extract learner ID and update data
     const userId = request.params.id;
     const requestBody = request.body;
+
+    // If department is being updated, validate it
+    if (requestBody.department && !validDepartments.includes(requestBody.department)) {
+        requestBody.department = 'other';
+    }
     
     try {
         // Call service layer to update learner

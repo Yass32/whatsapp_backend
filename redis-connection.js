@@ -2,16 +2,7 @@ require('dotenv').config();
 const {createClient} = require('redis');
 const IORedis = require('ioredis');
 
-/*
-const connection = createClient({
-    username: process.env.REDIS_USERNAME,
-    password: process.env.REDIS_PASSWORD,
-    socket: {
-        host: process.env.REDIS_HOST,
-        port: Number(process.env.REDIS_PORT)
-    }
-});
-*/
+
 const connection = new IORedis({ 
   host: process.env.REDIS_HOST, 
   port: Number(process.env.REDIS_PORT), 

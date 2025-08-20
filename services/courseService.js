@@ -23,8 +23,6 @@ const { lessonQueue, reminderQueue, notificationQueue, addJobToQueue } = require
 // Initialize Prisma client with acceleration for better performance
 const prisma = new PrismaClient().$extends(withAccelerate());
 
-// Utility function to create delays between API calls to avoid rate limiting
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Schedule lessons to be sent at specific times with configurable frequency
@@ -406,9 +404,12 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
             )
           }
         });
+      } else {
+        // Dont update score and inform user of correct answer
         correct = quiz.correctOption; // Return correct answer for confirmation
       }
     }
+
   } 
   // Handle lesson completion (no quiz reply)
   else if (!quizReply) {

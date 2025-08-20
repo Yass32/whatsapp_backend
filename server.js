@@ -137,8 +137,8 @@ app.listen(PORT, async () => {
             domain: 'climbing-cosmic-pegasus.ngrok-free.app' // Reserved static domain
         });
         
-        console.log(`✅ ngrok tunnel established: ${listener}`);
-        console.log(`🔗 Webhook URL: ${listener}/api/v1/webhook`);
+        console.log(`✅ ngrok tunnel established: ${listener.url()}`);
+        console.log(`🔗 Webhook URL: ${listener.url()}/api/v1/webhook`);
         console.log('📱 Configure this URL in WhatsApp Business API webhook settings');
         
     } catch (error) {
@@ -153,4 +153,22 @@ app.listen(PORT, async () => {
     
     console.log('\n🎯 Server initialization complete!');
     console.log('📖 Ready to process WhatsApp e-learning requests');
+});
+
+// === GLOBAL ERROR HANDLERS ===
+
+// Graceful shutdown for unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! 💥 Shutting down...');
+  console.error(err.name, err.message);
+  server.close(() => {
+    process.exit(1); // Exit with failure code
+  });
+});
+
+// Graceful shutdown for uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
+  console.error(err.name, err.message);
+  process.exit(1); // Immediately exit, as state is unclean
 });

@@ -17,6 +17,7 @@ const connectionOptions = {
 const lessonQueue = new Queue('lessonSender', connectionOptions);
 const reminderQueue = new Queue('reminderSender', connectionOptions);
 const notificationQueue = new Queue('notificationSender', connectionOptions);
+const welcomeQueue = new Queue('welcomeSender', connectionOptions);
 
 /**
  * Adds a job to the specified queue.
@@ -26,7 +27,10 @@ const notificationQueue = new Queue('notificationSender', connectionOptions);
  */
 const addJobToQueue = async (queue, jobName, data) => {
   // Generate a unique job ID to prevent duplicate jobs
-  const jobId = data.lesson ? `${data.course.id}:${data.lesson.id}:${data.phoneNumber || data.to}` : `${data.course.id}:${data.to}`;
+  // This is based on the course ID, lesson ID (if applicable), and phone number or recipient ID
+  const jobId = data.name && data.to ? `${data.name}:${data.to}` 
+  : data.lesson ? `${data.course.id}:${data.lesson.id}:${data.phoneNumber || data.to}` 
+  : `${data.course.id}:${data.to}`;
 
   await queue.add(jobName, data, {
     jobId: jobId,    
@@ -37,5 +41,6 @@ module.exports = {
   lessonQueue,
   reminderQueue,
   notificationQueue,
+  welcomeQueue,
   addJobToQueue,
 };

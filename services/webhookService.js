@@ -334,7 +334,7 @@ const handleQuickReply = async (from, messageBody, context) => {
             const {progress, correct} = await updateCourseProgress(from, courseId, lessonId, messageBody);
             
             // Check if the answer was correct
-            if (correct !== null) {
+            if (correct === null) {
                 // Send positive feedback for correct answer
                 await sendTextMessage(from, "Correct! Keep it up! 👏🎉");
             } else {
@@ -492,7 +492,7 @@ const storeMessageContext = async (phoneNumber, messageId, courseId, lessonId = 
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Auto-expire after 7 days
             }
         });
-        console.log(`✅ Message context stored for ${messageId}`);
+        // console.log(`✅ Message context stored for ${messageId}`);
     } catch (error) {
         // Log error but don't throw (context storage is not critical)
         console.error('Failed to store message context:', error);
