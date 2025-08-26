@@ -13,7 +13,7 @@ const welcomeProcessor = async (job) => {
   try {
     // Send welcome message
     console.log(`Sending welcome message to ${to}`);
-    await whatsappService.sendTemplateMessage(to, 'welcome_message', 'en', { body: [name] });
+    await whatsappService.sendTemplateMessage(to, 'welcome_message', 'tr', { body: [name] });
   } catch (error) {
     console.error(`Failed to welcome ${to}:`, error.message);
     throw error;
@@ -28,7 +28,7 @@ const notificationProcessor = async (job) => {
   console.log(`Processing notification job ${job.id} for ${to}`);
   try {
     // Send course notification
-    const res = await whatsappService.sendTemplateMessage(to, 'new_courses', 'en', { header: [courseData.name], body: [courseData.description] }, "Start");
+    const res = await whatsappService.sendTemplateMessage(to, 'new_courses', 'tr', { header: [courseData.name], body: [courseData.description] }, "Başla");
     await storeMessageContext(to, res.messageId, course.id);
     if (courseData.coverImage) await whatsappService.sendImageMessage(to, courseData.coverImage);
   } catch (notificationError) {
@@ -45,7 +45,7 @@ const reminderProcessor = async (job) => {
   console.log(`Processing reminder job ${job.id} for ${phoneNumber}`);
   try {
     // Send reminder message
-    await whatsappService.sendTemplateMessage(phoneNumber, 'lesson_reminder', 'en', { header: [lesson.title], body: [course.name, `${currentLessonIndex + 1}`, '2 hours'] }, "Ready");
+    await whatsappService.sendTemplateMessage(phoneNumber, 'lesson_reminder', 'tr', { header: [lesson.title], body: [course.name, `${currentLessonIndex + 1}`, '2 saat'] }, "Hazır");
     console.log(`📨 Reminder sent to ${phoneNumber}`);
   } catch (error) {
     console.error(`❌ Failed to send reminder to ${phoneNumber}:`, error.message);
@@ -65,7 +65,7 @@ const lessonProcessor = async (job) => {
     // Send lesson title
     // await whatsappService.sendTextMessage(phoneNumber, `📚 ${frequency} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
     // Send lesson content
-    const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson', 'en', { header: [lesson.title], body: [lesson.content] }, "Done");
+    const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson', 'tr', { header: [lesson.title], body: [lesson.content] }, "Tamamdır");
     await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
 
     // Add a small delay to ensure proper message ordering

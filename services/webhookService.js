@@ -164,8 +164,8 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                     context: messages.context?.id, // ID of message being replied to
                 }
                 // If the button text is "Ready", send a confirmation message
-                if (messageBody === "Ready") {
-                    await sendTextMessage(from, "Great, stay tuned for the next lesson! 😊");
+                if (messageBody === "Hazır") {
+                    await sendTextMessage(from, "Harika, bir sonraki ders için hazır olun! 😊");
                 } else {
                     // Log the button press and handle the reply
                     await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
@@ -178,7 +178,7 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                 messageBody = messages.text?.body || ''; // Extract message text
                 // Log the text message
                 await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
-                await sendTextMessage(from, "Thank you for your message! We will get back to you as soon as possible.");
+                await sendTextMessage(from, "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.");
                 console.log(from, messageBody);
                 break;
 
@@ -288,7 +288,7 @@ const handleQuickReply = async (from, messageBody, context) => {
         // Handle case where no context is found
         if (!messageContext) {
             console.warn(`No message context found for message ID: ${repliedToMessageId}`);
-            await sendTextMessage(from, "⚠️ Sorry, I couldn't find the context for this message. Please try again or contact support.");
+            await sendTextMessage(from, "⚠️ Üzgünüz, bu mesaj için bağlam bulunamadı. Lütfen tekrar deneyin veya destek ile iletişime geçin.");
             return; // Exit if context not found
         }
         
@@ -296,7 +296,7 @@ const handleQuickReply = async (from, messageBody, context) => {
         const { courseId, lessonId} = messageContext;
         
         // Handle "Start" button replies (course enrollment activation)
-        if(messageBody === "Start"){
+        if(messageBody === "Başla"){
             try {
                 // Activate the learner's account by setting active flag to true
                 const setActiveLearner = await prisma.learner.updateMany({
@@ -307,7 +307,7 @@ const handleQuickReply = async (from, messageBody, context) => {
                 // Check if any learner records were updated
                 if (setActiveLearner.count === 0) {
                     console.warn(`⚠️  No learner found with number: ${from}`);
-                    await sendTextMessage(from, "Sorry, we couldn't find your registration. Please contact support.");
+                    await sendTextMessage(from, "Üzgünüz, kaydınızı bulamadık. Lütfen destek ile iletişime geçin.");
                     return; // Exit if no learner found
                 } else {
                     console.log(`✅ Activated learner with number: ${from} (${setActiveLearner.count} record(s) updated)`);
@@ -315,18 +315,18 @@ const handleQuickReply = async (from, messageBody, context) => {
             } catch (error) {
                 // Handle database errors during activation
                 console.error('Failed to activate learner:', error);
-                await sendTextMessage(from, "Sorry, there was an error activating your account. Please try again.😞");
+                await sendTextMessage(from, "Üzgünüz, hesabınızı etkinleştirirken bir hata oluştu. Lütfen tekrar deneyin.😞");
                 return; // Exit on error
             }
             // Send confirmation message to user
-            await sendTextMessage(from, "Thank you for enrolling in our course. We will notify you when the course starts.🙏");
+            await sendTextMessage(from, "Kursumuza kaydolduğunuz için teşekkürler. Kurs başladığında sizi bilgilendireceğiz.🙏");
         }
         // Handle "Done" button replies (lesson completion)
-        else if (messageBody === "Done") {
+        else if (messageBody === "Tamamdır") {
             // Update progress to mark lesson as completed
             await updateCourseProgress(from, courseId, lessonId);
             // Send congratulatory message
-            await sendTextMessage(from, "Great job completing this lesson! 🎉");
+            await sendTextMessage(from, "Bu dersi tamamladığınız için tebrikler! 🎉");
         }
         // Handle quiz answer submissions (any other reply)
         else {
@@ -336,16 +336,16 @@ const handleQuickReply = async (from, messageBody, context) => {
             // Check if the answer was correct
             if (correct === null) {
                 // Send positive feedback for correct answer
-                await sendTextMessage(from, "Correct! Keep it up! 👏🎉");
+                await sendTextMessage(from, "Doğru! Böyle devam edin! 👏🎉");
             } else {
                 // Send feedback with correct answer for wrong answer
-                await sendTextMessage(from,`Wrong ❌, the correct answer is ${correct}. Better luck next time!`);
+                await sendTextMessage(from,`Yanlış ❌, doğru cevap: ${correct}. Bir sonraki sefere daha iyi şanslar!`);
             }
         }
     } catch (error) {
         // Handle any errors that occur during quick reply processing
         console.error('Error in handleQuickReply:', error);
-        await sendTextMessage(from, "Sorry, there was an error processing your request. Please try again.");
+        await sendTextMessage(from, "Üzgünüz, isteğiniz işlenirken bir hata oluştu. Lütfen tekrar deneyin.");
     }
 }
 
