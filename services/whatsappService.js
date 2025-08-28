@@ -363,7 +363,7 @@ const sendInteractiveListMessage = async (to, quizQuestion, options) => {
           text: "Zenolearn" // Footer branding text
         },
         action: {
-          button: "Select an option", // Text shown on the list button
+          button: "Bir seçenek seçin", // Text shown on the list button
           sections: [
             { 
               title: "Choose one", // Section title within the list

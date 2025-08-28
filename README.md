@@ -6,13 +6,18 @@ This project is a backend API for a WhatsApp-based e-learning platform. It enabl
 ---
 
 ## Features
+- **RESTful API**: A complete API for managing courses, lessons, users, and learners.
 - **Course Management**: Create courses with lessons, quizzes, and automated delivery schedules.
 - **User Management**: Register, authenticate, and manage admin users and learners.
 - **WhatsApp Messaging**: Send text, image, template, and interactive messages to learners.
-- **Lesson Scheduling**: Automate lesson delivery using cron jobs and queues.
+- **Automated Lesson Scheduling**: Automate lesson delivery using cron jobs and queues.
 - **Webhook Integration**: Handle WhatsApp webhook events for message status and replies.
 - **Progress Tracking**: Track learner progress and quiz results.
-- **System Cleanup**: Admin endpoints for bulk deletion of courses and learners.
+- **Scheduled Cleanup**: A cron job for regular database maintenance and cleanup of old records.
+- **Database Management** : Utilizes Prisma ORM for efficient and type-safe database interactions.
+- **Background Job Processing**: Implements a message queue using BullMQ and Redis for handling asynchronous tasks like sending messages.
+- **Security**: Uses helmet for setting security-related HTTP headers and cors for managing cross-origin requests.
+- **Authentication** : Employs JWT-based authentication for securing API endpoints.
 
 ---
 

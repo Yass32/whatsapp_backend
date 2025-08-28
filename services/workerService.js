@@ -65,7 +65,7 @@ const lessonProcessor = async (job) => {
     // Send lesson title
     // await whatsappService.sendTextMessage(phoneNumber, `📚 ${frequency} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
     // Send lesson content
-    const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson', 'tr', { header: [lesson.title], body: [lesson.content] }, "Tamamdır");
+    const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson_tr', 'tr', { header: [lesson.title], body: [lesson.content] }, "Tamamdır");
     await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
 
     // Add a small delay to ensure proper message ordering
