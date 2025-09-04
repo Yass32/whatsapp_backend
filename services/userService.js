@@ -202,17 +202,17 @@ const getAllUsers = async () => {
  * @throws {Error} If user not found or update fails
  */
 const updateUser = async (userId, requestBody) => {
-    const {name, surname, email, password, number} = requestBody;
-    
     try {
-        // Prepare base update data
-        let updatedData = { name, surname, email, number };
-        
-        // Hash new password if provided
-        if (password) {
-            updatedData.password = await bcrypt.hash(password, 10);
+        // Build update data only from provided fields
+        let updatedData = {};
+        if (requestBody.name !== undefined) updatedData.name = requestBody.name;
+        if (requestBody.surname !== undefined) updatedData.surname = requestBody.surname;
+        if (requestBody.email !== undefined) updatedData.email = requestBody.email;
+        if (requestBody.number !== undefined) updatedData.number = requestBody.number;
+        if (requestBody.password !== undefined) {
+            updatedData.password = await bcrypt.hash(requestBody.password, 10);
         }
-        
+
         // Update user in database
         const user = await prisma.admin.update({
             where: { id: Number(userId) }, // Convert to number for safety

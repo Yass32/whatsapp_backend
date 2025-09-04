@@ -40,7 +40,7 @@ const prisma = new PrismaClient().$extends(withAccelerate());
  * @returns {Object} Scheduling result with course info and next execution time
  * @throws {Error} If course not found or scheduling parameters are invalid
  */
-const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startDate = null, frequency = "daily", timezone = "Europe/Istanbul") => {
+const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startDate = null, frequency = "daily", timezone = "Europe/Istanbul") => {
   try {
     // Fetch the course from database with all lessons and their quizzes
     const course = await prisma.course.findUnique({
@@ -110,15 +110,15 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "10:00", startD
     };
 
     // Reminder is 2 hours before the lesson
-    const reminderHour = (hour - 2 + 24) % 24;
+    const reminderHour = (hour - 1 + 24) % 24;
     let reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
     // Reminder: one minute before each lesson: 5,11,17,23,29...
-    reminderCronExpression = '5-59/6 * * * *';  // TODO: Remove for production
+    //reminderCronExpression = '5-59/6 * * * *';  // TODO: Remove for production
 
     // Lesson delivery cron
     let lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
     // Lesson: every 6 minutes at 0,6,12,18,24...
-    lessonCronExpression = "*/6 * * * *"; // TODO: Remove for production
+    //lessonCronExpression = "*/6 * * * *"; // TODO: Remove for production
 
     // === CRON JOB SCHEDULING ===
     const reminderTask = cron.schedule(reminderCronExpression, async () => {
@@ -478,41 +478,42 @@ module.exports = {
 /*
 {
   "courseData": {
-    "name": "Introduction to Node.js",
-    "description": "Learn the fundamentals of Node.js development",
+    "name": "Türk Mutfağına Giriş",
+    "description": "Türk yemek kültürünün temellerini ve geleneksel tarifleri öğrenin",
     "coverImage": "https://ofy.org/wp-content/uploads/2015/11/OFY-learning-to-learn-cover-photo.jpg",
     "adminId": 1
   },
   "lessonsData": [
     {
-      "title": "What is Node.js?",
-      "content": "Node.js is a JavaScript runtime built on Chrome's V8 JavaScript engine...",
+      "title": "Türk Mutfağına Genel Bakış",
+      "content": "Türk mutfağı, Osmanlı İmparatorluğu'nun mirasını taşıyan, zengin çeşitliliğe sahip bir dünya mutfağıdır. Anadolu, Orta Asya, Orta Doğu ve Balkan mutfaklarının harmanlanmasıyla oluşmuştur.",
       "day": 1,
       "quiz": {
-        "question": "What is Node.js?",
-        "options": ["A programming language", "A JavaScript runtime", "A database", "A web browser"],
-        "correctOption": "A JavaScript runtime"
+        "question": "Türk mutfağı hangi mutfakların harmanlanmasıyla oluşmuştur?",
+        "options": ["A. Anadolu ve Orta Asya", "B. Orta Doğu ve Balkan", "C. İtalyan ve Fransız", "D. Bilmiyorum"],
+        "correctOption": "A. Anadolu ve Orta Asya"
       }
     },
     {
-      "title": "Installing Node.js",
-      "content": "To get started with Node.js, you need to install it on your system...",
+      "title": "Türk Mutfağının Temelleri",
+      "content": "Türk mutfağı, zengin bir tarih ve çeşitliliğe sahiptir. Temel pişirme yöntemleri arasında ızgara, tencere yemekleri ve zeytinyağlılar bulunur. Geleneksel tarifler genellikle taze sebzeler, etler ve bakliyatlar kullanır.",
       "day": 2,
       "quiz": {
-        "question": "Which command installs Node.js globally?",
-        "options": ["npm install node", "brew install node", "apt-get install nodejs", "All of the above"],
-        "correctOption": "All of the above"
+        "question": "Türk mutfağının temel pişirme yöntemlerinden biri değildir?",
+        "options": ["A. Izgara", "B. Tencere yemekleri", "C. Zeytinyağlılar", "D. Sushi yapımı"],
+        "correctOption": "D. Sushi yapımı"
       }
     },
     {
-      "title": "Your First Node.js App",
-      "content": "Let's create a simple Hello World application...",
+      "title": "Bölgesel Türk Yemekleri",
+      "content": "Türkiye'nin yedi bölgesi kendine has yemeklere sahiptir. Güneydoğu'da kebap ve lahmacun, Karadeniz'de hamsi ve mıhlama, Ege'de zeytinyağlılar ve ot yemekleri öne çıkar.",
       "day": 3
-      // No quiz for this lesson
     }
   ],
   "numbers": [
-    "905359840140"
+    "905359840140",
+    "905548411974", 
+    "905051190856"
   ]
 }
-  */
+*/

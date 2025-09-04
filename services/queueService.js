@@ -7,7 +7,7 @@ const connectionOptions = {
   limiter: { max: Number(process.env.SEND_MAX_PER_SEC ?? 10), duration: 1000 }, // Global rate limit (tune to your WABA/number limits)
   defaultJobOptions: {
     attempts: 5, // retry each failed job up to 5 times
-    backoff: { type: 'exponential', delay: 1000 }, // wait 1s, 2s, 4s, … between retries.
+    backoff: { type: 'exponential', delay: 60000 },  // Wait 1 minute between retries
     removeOnComplete: 1000, // keep only the last 1000 completed jobs (older ones auto-removed).
     removeOnFail: 5000, // keep only the last 5000 failed jobs.
   },
