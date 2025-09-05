@@ -30,10 +30,11 @@ const helmet = require('helmet'); // Security middleware
 const app = express();
 
 // Route imports
-const userRoutes = require('./routes/userRoute');
+const adminRoutes = require('./routes/adminRoute');
+const learnerRoutes = require('./routes/learnerRoute');
 const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
-const courseRoute = require('./routes/courseRoute');
+const courseRoutes = require('./routes/courseRoute');
 
 // Service imports
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
@@ -74,16 +75,22 @@ app.use('/api/v1', webhookRoutes);
 app.use('/api/v1/whatsapp', whatsappRoutes);
 
 /**
- * User and learner management routes (/api/v1/users/*)
- * Handles authentication, user CRUD, and learner management
+ * Admin management routes (/api/v1/admin/*)
+ * Handles admin authentication and CRUD operations
  */
-app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
+/**
+ * Learner management routes (/api/v1/learners/*)
+ * Handles learner registration and management
+ */
+app.use('/api/v1/learners', learnerRoutes);
 
 /**
  * Course management routes (/api/v1/courses/*)
  * Handles course creation, deletion, and management
  */
-app.use('/api/v1/courses', courseRoute);
+app.use('/api/v1/courses', courseRoutes);
 
 
 

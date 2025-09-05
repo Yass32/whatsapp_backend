@@ -8,8 +8,7 @@
  * - Cookie-based session handling
  */
 
-const userService = require('../services/userService');
-const learnerService = require('../services/learnerService');
+const adminService = require('../services/adminService');
 
 // Valid departments for users
 const validDepartments = ['marketing', 'it', 'learning', 'other'];
@@ -37,7 +36,7 @@ const registerUser = async (request, response) => {
         }
 
         // Call service layer to create new admin user
-        const newUser = await userService.registerNewUser(userData);
+        const newUser = await adminService.registerNewUser(userData);
         
         // Return success response with created user data
         response.status(201).json(newUser);
@@ -47,45 +46,6 @@ const registerUser = async (request, response) => {
     }
 }
 
-/**
- * Register one or more new learners (students).
- * 
- * Handles POST requests to create new learner accounts in bulk.
- * Expects a JSON object with a `learners` key containing an array of learner objects.
- * 
- * @param {Object} request - Express request object.
- * @param {Object} request.body - The request body, expected to have a `learners` array.
- * @param {Array<Object>} request.body.learners - Array of learner registration data.
- * @param {Object} response - Express response object.
- * @returns {void} Sends a JSON response with the count of created learners or an error.
- */
-const registerLearner = async (request, response) => {
-    try {
-        const { learners } = request.body;
-
-        // Basic validation
-        if (!learners || !Array.isArray(learners) || learners.length === 0) {
-            return response.status(400).json({ error: 'Request body must contain a non-empty array of learners.' });
-        }
-
-        // Validate department for each learner
-        const validatedLearners = learners.map(learner => {
-            if (learner.department && !validDepartments.includes(learner.department)) {
-                return { ...learner, department: 'other' };
-            }
-            return learner;
-        });
-
-        // Call service layer to create new learners in bulk
-        const result = await learnerService.createLearner(validatedLearners);
-        
-        // Return success response with the count of created learners
-        response.status(201).json(result);
-    } catch (error) {
-        // Return error response if registration fails
-        response.status(500).json({ error: error.message });
-    }
-};
 
 /**
  * Cookie configuration for refresh tokens
@@ -119,7 +79,7 @@ const cookieOptions = {
 const loginUser = async (request, response) => {
     try {
         // Authenticate user and generate tokens
-        const { accessToken, refreshToken } = await userService.loginUser(request.body);
+        const { accessToken, refreshToken } = await adminService.loginUser(request.body);
         
         // Set refresh token as HTTP-only cookie and return access token
         response
@@ -161,7 +121,7 @@ const refreshToken = (request, response) => {
         }
         
         // Generate new access token using user data from refresh token
-        const accessToken = userService.generateAccessToken(user);
+        const accessToken = adminService.generateAccessToken(user);
         response.json({ accessToken });
     });
 };
@@ -208,7 +168,7 @@ const getUser = async (request, response) => {
     
     try {
         // Call service layer to fetch user data
-        const user = await userService.getUser(userId);
+        const user = await adminService.getUser(userId);
         
         // Return user data (should be 200, not 201)
         response.status(200).json(user);
@@ -218,33 +178,6 @@ const getUser = async (request, response) => {
     }
 }
 
-/**
- * Get learner by ID
- * 
- * Handles GET requests to retrieve learner details:
- * - Fetches learner profile information
- * - Used for learner management and progress tracking
- * 
- * @param {Object} request - Express request object
- * @param {string} request.params.id - Learner ID from URL parameter
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with learner data or error
- */
-const getLearner = async (request, response) => {
-    // Extract learner ID from URL parameters
-    const userId = request.params.id;
-    
-    try {
-        // Call service layer to fetch learner data
-        const learner = await learnerService.getLearner(userId);
-        
-        // Return learner data (should be 200, not 201)
-        response.status(200).json(learner);
-    } catch (error) {
-        // Return error response if learner not found or fetch fails
-        response.status(500).json({error: error.message});
-    }
-}
 
 /**
  * Get all admin users
@@ -261,7 +194,7 @@ const getLearner = async (request, response) => {
 const getAllUsers = async (request, response) => {
     try {
         // Call service layer to fetch all admin users
-        const users = await userService.getAllUsers();
+        const users = await adminService.getAllUsers();
         
         // Return array of users
         response.status(200).json(users);
@@ -271,30 +204,6 @@ const getAllUsers = async (request, response) => {
     }
 }
 
-/**
- * Get all learners
- * 
- * Handles GET requests to retrieve all learners:
- * - Fetches complete list of learners
- * - Used for learner management dashboards
- * - Course enrollment and progress tracking
- * 
- * @param {Object} request - Express request object
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with array of learners or error
- */
-const getAllLearners = async (request, response) => {
-    try {
-        // Call service layer to fetch all learners
-        const learners = await learnerService.getAllLearners();
-        
-        // Return array of learners
-        response.status(200).json(learners);
-    } catch (error) {
-        // Return error response if fetch fails
-        response.status(500).json({error: error.message});
-    }
-}
 
 /**
  * Update admin user information
@@ -322,7 +231,7 @@ const updateUser = async (request, response) => {
     
     try {
         // Call service layer to update user
-        const updatedUser = await userService.updateUser(userId, requestBody);
+        const updatedUser = await adminService.updateUser(userId, requestBody);
         
         // Return updated user data
         response.status(200).json(updatedUser);
@@ -332,41 +241,7 @@ const updateUser = async (request, response) => {
     }
 }
 
-/**
- * Update learner information
- * 
- * Handles PUT/PATCH requests to update learner data:
- * - Updates contact information (email, phone)
- * - Modifies WhatsApp number for messaging
- * - Updates profile details
- * 
- * @param {Object} request - Express request object
- * @param {string} request.params.id - Learner ID from URL parameter
- * @param {Object} request.body - Updated learner data
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with updated learner or error
- */
-const updateLearner = async (request, response) => {
-    // Extract learner ID and update data
-    const userId = request.params.id;
-    const requestBody = request.body;
 
-    // If department is being updated, validate it
-    if (requestBody.department && !validDepartments.includes(requestBody.department)) {
-        requestBody.department = 'other';
-    }
-    
-    try {
-        // Call service layer to update learner
-        const updatedLearner = await learnerService.updateLearner(userId, requestBody);
-        
-        // Return updated learner data
-        response.status(200).json(updatedLearner);
-    } catch (error) {
-        // Return error response if update fails
-        response.status(500).json({error: error.message});
-    }
-}
 
 /**
  * Delete admin user
@@ -387,7 +262,7 @@ const deleteUser = async (request, response) => {
     
     try {
         // Call service layer to delete user
-        const deletedUser = await userService.deleteUser(userId);
+        const deletedUser = await adminService.deleteUser(userId);
         
         // Return deleted user data for confirmation
         response.status(200).json(deletedUser);
@@ -397,75 +272,15 @@ const deleteUser = async (request, response) => {
     }
 }
 
-/**
- * Delete learner
- * 
- * Handles DELETE requests to remove learners:
- * - Permanently deletes learner account
- * - May fail if learner has related records (enrollments, progress)
- * - Use deleteAllLearners for cascading deletion
- * 
- * @param {Object} request - Express request object
- * @param {string} request.params.id - Learner ID from URL parameter
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with deleted learner or error
- */
-const deleteLearner = async (request, response) => {
-    // Extract learner ID from URL parameters
-    const userId = request.params.id;
-    
-    try {
-        // Call service layer to delete learner
-        const deletedLearner = await learnerService.deleteLearner(userId);
-        
-        // Return deleted learner data for confirmation
-        response.status(200).json(deletedLearner);
-    } catch (error) {
-        // Return error response if deletion fails
-        response.status(500).json({error: error.message});
-    }
-}
-
-/**
- * Delete all learners and related data
- * 
- * Handles DELETE requests to remove all learners:
- * - Cascading deletion of learners and related data
- * - Removes enrollments, progress, and learner records
- * - Uses database transaction for atomicity
- * - Destructive operation for system cleanup
- * 
- * @param {Object} request - Express request object
- * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with deletion results or error
- */
-const deleteAllLearners = async (request, response) => {
-    try {
-        // Call service layer to delete all learners with cascading cleanup
-        const deletedLearners = await learnerService.deleteAllLearners();
-        
-        // Return deletion results
-        response.status(200).json(deletedLearners);
-    } catch (error) {
-        // Return error response if deletion fails
-        response.status(500).json({error: error.message});
-    }
-}
 
 // Export all controller functions for use in route handlers
 module.exports = {
     registerUser, // Handler for admin user registration
-    registerLearner, // Handler for learner registration
     loginUser, // Handler for user authentication
     refreshToken, // Handler for token refresh
     logout, // Handler for user logout
     getUser, // Handler for getting single admin user
-    getLearner, // Handler for getting single learner
     getAllUsers, // Handler for getting all admin users
-    getAllLearners, // Handler for getting all learners
     updateUser, // Handler for updating admin user
-    updateLearner, // Handler for updating learner
     deleteUser, // Handler for deleting admin user
-    deleteLearner, // Handler for deleting single learner
-    deleteAllLearners, // Handler for deleting all learners
 }
