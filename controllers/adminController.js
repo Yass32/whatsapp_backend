@@ -1,5 +1,5 @@
 /**
- * User Controller - HTTP Request Handlers for User and Learner Management
+ * User Controller - HTTP Request Handlers for User Management
  * 
  * This controller handles HTTP requests for both admin users and learners:
  * - User registration, authentication, and CRUD operations
@@ -272,6 +272,34 @@ const deleteUser = async (request, response) => {
     }
 }
 
+/**
+ * Delete all admin users
+ * 
+ * Handles DELETE requests to remove all admin users:
+ * - Permanently deletes all admin user accounts
+ * - Removes all users from the system
+ * - Use with extreme caution as this operation cannot be undone
+ * - Will fail if attempting to delete the last admin user
+ * 
+ * @param {Object} request - Express request object
+ * @param {Object} response - Express response object
+ * @returns {void} Sends JSON response with deletion results or error
+ */
+const deleteAllUsers = async (request, response) => {
+    try {
+        // Call service layer to delete all admin users
+        const result = await adminService.deleteAllUsers();
+        
+        // Return deletion results
+        response.status(200).json({
+            message: 'All admin users deleted successfully',
+            deletedCount: result.count
+        });
+    } catch (error) {
+        // Return error response if deletion fails
+        response.status(500).json({error: error.message});
+    }
+}
 
 // Export all controller functions for use in route handlers
 module.exports = {
@@ -283,4 +311,5 @@ module.exports = {
     getAllUsers, // Handler for getting all admin users
     updateUser, // Handler for updating admin user
     deleteUser, // Handler for deleting admin user
+    deleteAllUsers, // Handler for deleting all admin users
 }

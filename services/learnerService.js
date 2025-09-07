@@ -130,22 +130,50 @@ const getAllLearners = async () => {
 /**
  * Update learner profile information
  * 
- * Updates learner contact information including email and phone number.
- * Phone number updates are important as they affect WhatsApp message delivery.
+ * Updates learner information including:
+ * - Personal information (name, surname)
+ * - Contact information (email, phone number)
+ * - Organizational information (department, company)
+ * 
+ * Note: The 'active' status cannot be updated through this function.
+ * Use dedicated activation/deactivation endpoints instead.
  * 
  * @param {string|number} userId - ID of learner to update
  * @param {Object} requestBody - Updated learner data
- * @param {string} requestBody.email - Updated email address
- * @param {string} requestBody.number - Updated WhatsApp phone number
+ * @param {string} [requestBody.name] - Updated first name
+ * @param {string} [requestBody.surname] - Updated last name
+ * @param {string} [requestBody.email] - Updated email address
+ * @param {string} [requestBody.number] - Updated WhatsApp phone number
+ * @param {string} [requestBody.department] - Updated department
+ * @param {string} [requestBody.company] - Updated company name
  * @returns {Object} Updated learner object
  * @throws {Error} If learner not found or update fails
  */
 const updateLearner = async (userId, requestBody) => {
-    const { email, number} = requestBody;
-    
     try {
-        // Prepare update data (only email and number are updatable)
-        let updatedData = { email, number };
+        // Extract allowed fields from request body
+        const {
+            name,
+            surname,
+            email,
+            number,
+            department,
+            company
+        } = requestBody;
+
+        // Build update data object with only provided fields
+        const updatedData = {};
+        if (name !== undefined) updatedData.name = name;
+        if (surname !== undefined) updatedData.surname = surname;
+        if (email !== undefined) updatedData.email = email;
+        if (number !== undefined) updatedData.number = number;
+        if (department !== undefined) updatedData.department = department;
+        if (company !== undefined) updatedData.company = company;
+
+        // Validate department if provided
+        if (department && !['marketing', 'it', 'learning', 'other'].includes(department)) {
+            throw new Error('Invalid department value');
+        }
         
         // Update learner in database
         const learner = await prisma.learner.update({
@@ -155,12 +183,19 @@ const updateLearner = async (userId, requestBody) => {
         
         // Check if learner was found and updated
         if (!learner) {
-            throw new Error('learner not found');
+            throw new Error('Learner not found');
         }
         
         return learner; // Return updated learner
     } catch (error) {
-        throw new Error('Failed to update learner information'); // Generic error
+        if (error.message === 'Invalid department value') {
+            throw error;
+        }
+        // Handle Prisma unique constraint violations
+        if (error.code === 'P2002') {
+            throw new Error('Email address is already in use');
+        }
+        throw new Error('Failed to update learner information');
     }
 }
 

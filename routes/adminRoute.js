@@ -14,7 +14,7 @@ const adminController = require('../controllers/adminController');
 const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
 
 /**
- * POST /admin/register
+ * POST /register
  * Register a new admin user
  * 
  * Creates admin account with hashed password and profile information.
@@ -23,7 +23,7 @@ const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
 router.post('/register', adminController.registerUser);
 
 /**
- * POST /admin/login
+ * POST /login
  * Authenticate admin user
  * 
  * Validates credentials and returns JWT tokens.
@@ -32,7 +32,7 @@ router.post('/register', adminController.registerUser);
 router.post('/login', adminController.loginUser);
 
 /**
- * POST /admin/refresh-token
+ * POST /refresh-token
  * Refresh access token
  * 
  * Uses refresh token from cookie to generate new access token.
@@ -41,7 +41,7 @@ router.post('/login', adminController.loginUser);
 router.post('/refresh-token', adminController.refreshToken);
 
 /**
- * POST /admin/logout
+ * POST /logout
  * Log out admin user
  * 
  * Clears refresh token cookie to invalidate session.
@@ -50,7 +50,7 @@ router.post('/refresh-token', adminController.refreshToken);
 router.post('/logout', adminController.logout);
 
 /**
- * GET /admin/all
+ * GET /all
  * Get all admin users
  * 
  * Retrieves list of all admin users for management purposes.
@@ -61,40 +61,44 @@ router.get('/all', adminController.getAllUsers);
 
 
 /**
- * GET /admin/:id
+ * GET /:id
  * Get single admin user by ID
  * 
  * Retrieves specific admin user details for profile viewing.
  */
 //router.get('/admin/:id', authenticateJWT, authorizeAdmin, userController.getUser);
-router.get('/admin/:id', adminController.getUser);
+router.get('/:id', adminController.getUser);
 
 
 /**
- * PUT /admin/:id
+ * PUT /:id
  * Update admin user information
  * 
  * Updates admin user profile, including optional password changes.
  * Passwords are automatically hashed before storage.
  */
 //router.put('/admin/:id', authenticateJWT, authorizeAdmin, userController.updateUser);
-router.put('/admin/:id', adminController.updateUser);
+router.put('/:id', adminController.updateUser);
 
 
 /**
- * DELETE /admin/:id
+ * DELETE /:id
  * Delete admin user
  * 
  * Permanently removes admin user from system.
  * Use with caution as operation cannot be undone.
  */
 //router.delete('/admin/:id', authenticateJWT, authorizeAdmin, userController.deleteUser);
-router.delete('/admin/:id', adminController.deleteUser);
+router.delete('/:id', adminController.deleteUser);
 
 
 /**
- * DELETE /admin/all
+ * DELETE /all
  * Delete all admins and related data
+ * 
+ * Performs cascading deletion of all admin users and associated data.
+ * Includes user profiles and session records.
+ * Will fail if attempting to delete the last admin user.
  */
 //router.delete('/all', authenticateJWT, authorizeAdmin, userController.deleteAllUsers);
 router.delete('/all', adminController.deleteAllUsers);

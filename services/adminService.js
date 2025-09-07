@@ -258,6 +258,62 @@ const deleteUser = async (userId) => {
     }
 }
 
+/**
+ * Delete all admin users from the system
+ * 
+ * Permanently removes all admin users from database except the last one.
+ * This operation:
+ * - Counts total admin users
+ * - Prevents deletion if only one admin exists
+ * - Uses a transaction for data consistency
+ * - Returns count of deleted users
+ * 
+ * @returns {Object} Object containing count of deleted users
+ * @throws {Error} If deletion fails or attempting to delete last admin
+ */
+const deleteAllUsers = async () => {
+    try {
+        // Start a transaction for data consistency
+        return await prisma.$transaction(async (tx) => {
+            // Count total admins
+            const totalAdmins = await tx.admin.count();
+            
+            // Prevent deletion if only one admin exists
+            if (totalAdmins <= 1) {
+                throw new Error('Cannot delete the last admin user');
+            }
+
+            // Get all admin IDs except the most recently created one
+            const admins = await tx.admin.findMany({
+                orderBy: {
+                    createdAt: 'desc'
+                },
+                skip: 1, // Skip the most recent admin
+                select: {
+                    id: true
+                }
+            });
+
+            // Delete all admins except the most recent one
+            const deleteResult = await tx.admin.deleteMany({
+                where: {
+                    id: {
+                        in: admins.map(admin => admin.id)
+                    }
+                }
+            });
+
+            return {
+                count: deleteResult.count
+            };
+        });
+    } catch (error) {
+        if (error.message === 'Cannot delete the last admin user') {
+            throw error;
+        }
+        throw new Error('Failed to delete all users');
+    }
+}
 
 // Export all user service functions for use in controllers
 module.exports = {
@@ -267,6 +323,7 @@ module.exports = {
     getAllUsers, // Function to retrieve all admin users
     updateUser, // Function to update user information
     deleteUser, // Function to delete user from system
+    deleteAllUsers, // Function to delete all users except the most recent
     generateAccessToken, // Function to generate short-lived access tokens
     generateRefreshToken, // Function to generate long-lived refresh tokens
 }
