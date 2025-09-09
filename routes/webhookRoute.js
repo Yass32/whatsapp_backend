@@ -13,7 +13,7 @@ const router = express.Router();
 const webhookController = require('../controllers/webhookController');
 
 /**
- * GET /webhook/webhook
+ * GET /webhook
  * Verify WhatsApp webhook subscription
  * 
  * WhatsApp sends GET request to verify webhook endpoint during setup.
@@ -32,7 +32,7 @@ router.get('/webhook', webhookController.verifyWebhook);
 router.get('/test', (req, res) => res.send('Webhook route works!'));
 
 /**
- * POST /webhook/webhook
+ * POST /webhook
  * Handle incoming webhook events
  * 
  * Processes webhook events from WhatsApp including:

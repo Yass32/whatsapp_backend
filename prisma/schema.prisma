@@ -24,8 +24,49 @@ model Admin {
   department Department              @default(other)
   company   String 
   courses   Course[]
+  groups    Group[]                  // Groups created by this admin
   createdAt DateTime                 @default(now())
   updatedAt DateTime                 @updatedAt
+}
+
+model Group {
+  id          Int                    @id @default(autoincrement())
+  name        String
+  description String?
+  admin       Admin                  @relation(fields: [adminId], references: [id])
+  adminId     Int
+  members     GroupMember[]          // Learners in this group
+  courses     GroupCourse[]          // Courses assigned to this group
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([adminId])
+}
+
+model GroupMember {
+  id        Int                      @id @default(autoincrement())
+  group     Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   Int
+  learner   Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  learnerId Int
+  joinedAt  DateTime                @default(now())
+
+  @@unique([groupId, learnerId])    // Prevent duplicate memberships
+  @@index([groupId])
+  @@index([learnerId])
+}
+
+model GroupCourse {
+  id        Int                      @id @default(autoincrement())
+  group     Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   Int
+  course    Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId  Int
+  assignedAt DateTime               @default(now())
+
+  @@unique([groupId, courseId])     // Prevent duplicate course assignments
+  @@index([groupId])
+  @@index([courseId])
 }
 
 model Learner {
@@ -39,6 +80,7 @@ model Learner {
   company         String 
   enrollments     Enrollment[]       // Course enrollments
   courseProgress  CourseProgress[]   // Overall course progress
+  groups          GroupMember[]      // Groups this learner belongs to
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -64,8 +106,11 @@ model Course {
   enrollments    Enrollment[]  
   courseProgress CourseProgress[]  // Track learner progress in this course
   messageContexts MessageContext[] // Messages related to this course
+  groups         GroupCourse[]     // Groups this course is assigned to
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+
+  @@index([adminId])
 }
 
 

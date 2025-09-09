@@ -113,12 +113,12 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
     const reminderHour = (hour - 1 + 24) % 24;
     let reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
     // Reminder: one minute before each lesson: 5,11,17,23,29...
-    //reminderCronExpression = '5-59/6 * * * *';  // TODO: Remove for production
+    reminderCronExpression = '5-59/6 * * * *';  // TODO: Remove for production
 
     // Lesson delivery cron
     let lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
     // Lesson: every 6 minutes at 0,6,12,18,24...
-    //lessonCronExpression = "*/6 * * * *"; // TODO: Remove for production
+    lessonCronExpression = "*/6 * * * *"; // TODO: Remove for production
 
     // === CRON JOB SCHEDULING ===
     const reminderTask = cron.schedule(reminderCronExpression, async () => {
@@ -394,7 +394,7 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
 
     if (quiz) {
       // Check if the answer is correct
-      if (quizReply === quiz.correctOption) {
+      if (quizReply === quiz.correctOption || quizReply === quiz.correctOption.substring(0, 22) + '..') {
         // Update quiz score by adding percentage points
         progress = await prisma.courseProgress.update({
           where: { id: progress.id },

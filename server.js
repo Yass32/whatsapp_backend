@@ -35,6 +35,7 @@ const learnerRoutes = require('./routes/learnerRoute');
 const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
 const courseRoutes = require('./routes/courseRoute');
+const groupRoutes = require('./routes/groupRoute');
 
 // Service imports
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
@@ -91,6 +92,12 @@ app.use('/api/v1/learners', learnerRoutes);
  * Handles course creation, deletion, and management
  */
 app.use('/api/v1/courses', courseRoutes);
+
+/**
+ * Group management routes (/api/v1/groups/*)
+ * Handles group creation, member management, and course assignments
+ */
+app.use('/api/v1/groups', groupRoutes);
 
 
 

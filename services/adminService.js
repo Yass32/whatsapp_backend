@@ -16,39 +16,6 @@ const jwt = require("jsonwebtoken"); // For JWT token generation
 // Initialize Prisma client with Accelerate extension for optimized queries
 const prisma = new PrismaClient().$extends(withAccelerate())
 
-/**
- * Generate JWT access token for authenticated user
- * 
- * Access tokens are short-lived (60 minutes) and used for API authentication.
- * They contain user ID and role information for authorization.
- * 
- * @param {Object} user - User object containing id and role
- * @returns {string} Signed JWT access token
- */
-function generateAccessToken(user) {
-    return jwt.sign(
-        { userId: user.id, role: user.role }, // Payload with user info
-        process.env.JWT_SECRET, // Secret key from environment
-        { expiresIn: '60m' } // Token expires in 60 minutes
-    );
-}
-
-/**
- * Generate JWT refresh token for token renewal
- * 
- * Refresh tokens are long-lived (7 days) and used to obtain new access tokens
- * without requiring the user to log in again.
- * 
- * @param {Object} user - User object containing id and role
- * @returns {string} Signed JWT refresh token
- */
-function generateRefreshToken(user) {
-    return jwt.sign(
-        { userId: user.id, role: user.role }, // Payload with user info
-        process.env.JWT_REFRESH_SECRET, // Different secret for refresh tokens
-        { expiresIn: '7d' } // Token expires in 7 days
-    );
-}
 
 /**
  * Register a new admin user in the system
@@ -119,21 +86,29 @@ const loginUser = async (userData) => {
         
         // Check if user exists
         if (!user) {
+            console.error("Login error: Admin email not found", email);
             throw new Error('Admin not found');
         }
 
         // Compare provided password with stored hash
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
+            console.error("Login error: Invalid password for user", password);
             throw new Error('Invalid password');
         }
+
+        return {user, message: "Login successful"}
+
+        /*
 
         // Generate JWT tokens for authenticated user
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 
         return { accessToken, refreshToken }; // Return both tokens
+        */
     } catch (error) {
+        console.error("Login error:", error);
         throw new Error('Failed to login user'); // Generic error for security
     }
 }
@@ -324,6 +299,4 @@ module.exports = {
     updateUser, // Function to update user information
     deleteUser, // Function to delete user from system
     deleteAllUsers, // Function to delete all users except the most recent
-    generateAccessToken, // Function to generate short-lived access tokens
-    generateRefreshToken, // Function to generate long-lived refresh tokens
 }

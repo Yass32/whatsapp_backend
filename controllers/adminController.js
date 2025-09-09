@@ -97,33 +97,91 @@ const loginUser = async (request, response) => {
  * 
  * Handles POST requests to obtain new access tokens without re-login:
  * - Validates refresh token from HTTP-only cookie
- * - Generates new access token if refresh token is valid
+ * - Generates new access and refresh tokens (token rotation)
  * - Maintains user session without password re-entry
+ * - Handles token expiration gracefully
  * 
  * @param {Object} request - Express request object
  * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with new access token or error
+ * @returns {void} Sends JSON response with new tokens or error
  */
-const refreshToken = (request, response) => {
+const refreshToken = async (request, response) => {
     // Extract refresh token from HTTP-only cookie
     const token = request.cookies.refreshToken;
     
     // Check if refresh token exists
     if (!token) {
-        return response.status(401).json({ message: 'No refresh token provided' });
+        return response.status(401).json({ 
+            status: 'error',
+            code: 'TOKEN_MISSING',
+            message: 'No refresh token provided',
+            action: 'Please log in again to continue.'
+        });
     }
 
-    // Verify refresh token and generate new access token
-    const jwt = require('jsonwebtoken');
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, user) => {
-        if (err) {
-            return response.status(403).json({ message: 'Invalid or expired refresh token' });
-        }
+    try {
+        // Verify and validate refresh token
+        const tokenData = await tokenService.verifyRefreshToken(token);
         
-        // Generate new access token using user data from refresh token
-        const accessToken = adminService.generateAccessToken(user);
-        response.json({ accessToken });
-    });
+        // Get user data to generate new tokens
+        const user = await adminService.getUser(tokenData.userId);
+        
+        // Generate new tokens (token rotation)
+        const accessToken = tokenService.generateAccessToken(user);
+        const newRefreshToken = tokenService.generateRefreshToken(user);
+        
+        // Blacklist the old refresh token
+        await tokenService.blacklistToken(token);
+        
+        // Set new refresh token cookie and return new access token
+        response
+            .cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            })
+            .json({
+                status: 'success',
+                data: { accessToken }
+            });
+            
+    } catch (error) {
+        // Clear the refresh token cookie as it's no longer valid
+        response.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        });
+
+        // Handle specific error cases
+        if (error.message === 'Token has expired' || error.message === 'Invalid token') {
+            return response.status(401).json({
+                status: 'error',
+                code: 'TOKEN_EXPIRED',
+                message: 'Your session has expired',
+                action: 'Please log in again to continue.'
+            });
+        }
+
+        if (error.message === 'Token not found or blacklisted') {
+            return response.status(401).json({
+                status: 'error',
+                code: 'TOKEN_INVALID',
+                message: 'Invalid session',
+                action: 'Please log in again to continue.'
+            });
+        }
+
+        // Handle unexpected errors
+        console.error('Refresh token error:', error);
+        return response.status(500).json({
+            status: 'error',
+            code: 'SERVER_ERROR',
+            message: 'An unexpected error occurred',
+            action: 'Please try again or contact support if the problem persists.'
+        });
+    }
 };
 
 /**

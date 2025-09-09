@@ -28,7 +28,7 @@ const notificationProcessor = async (job) => {
   console.log(`Processing notification job ${job.id} for ${to}`);
   try {
     // Send course notification
-    const res = await whatsappService.sendTemplateMessage(to, 'new_courses', 'tr', { header: [courseData.name], body: [courseData.description] }, "Başla");
+    const res = await whatsappService.sendTemplateMessage(to, 'new_course', 'tr', { header: [courseData.name], body: [courseData.description] }, "Başla");
     await storeMessageContext(to, res.messageId, course.id);
     if (courseData.coverImage) await whatsappService.sendImageMessage(to, courseData.coverImage);
   } catch (notificationError) {
