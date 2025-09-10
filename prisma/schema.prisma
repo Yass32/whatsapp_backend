@@ -32,7 +32,6 @@ model Admin {
 model Group {
   id          Int                    @id @default(autoincrement())
   name        String
-  description String?
   admin       Admin                  @relation(fields: [adminId], references: [id])
   adminId     Int
   members     GroupMember[]          // Learners in this group

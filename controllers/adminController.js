@@ -79,13 +79,27 @@ const cookieOptions = {
 const loginUser = async (request, response) => {
     try {
         // Authenticate user and generate tokens
-        const { accessToken, refreshToken } = await adminService.loginUser(request.body);
+        //const { accessToken, refreshToken } = await adminService.loginUser(request.body);
         
         // Set refresh token as HTTP-only cookie and return access token
-        response
-            .cookie('refreshToken', refreshToken, cookieOptions) // Secure cookie for refresh token
-            .status(200)
-            .json({ accessToken }); // Access token in response body
+        //response
+        //    .cookie('refreshToken', refreshToken, cookieOptions) // Secure cookie for refresh token
+        //    .status(200)
+        //    .json({ accessToken }); // Access token in response body
+
+        
+        // If email or password is missing, return error
+        if (!request.body.email || !request.body.password) {
+            throw new Error('Email and password are required');
+        }
+
+        // Call service layer to authenticate user
+        const user = await adminService.loginUser(request.body);
+        
+        // Return success response with logged in user data
+        response.status(200).json(user);
+
+
     } catch (error) {
         // Return error response if login fails
         response.status(500).json({error: error.message});

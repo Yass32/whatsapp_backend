@@ -20,8 +20,8 @@ const createGroup = async (request, response) => {
     try {
         const groupData = {
             name: request.body.name,
-            description: request.body.description,
-            adminId: request.user.userId // From JWT token
+            adminId: request.body.userId
+            //adminId: request.user.userId From JWT token
         };
 
         // Validate required fields

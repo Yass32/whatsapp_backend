@@ -215,26 +215,138 @@ const getGroupDetails = async (groupId) => {
 };
 
 /**
- * Get all groups for an admin
+ * Get all groups for an admin with detailed member information
+ * 
+ * Returns all groups created by the admin including:
+ * - Basic group information
+ * - Member details (name, email, etc.)
+ * - Course assignments
+ * - Member and course counts
  * 
  * @param {number} adminId Admin ID
- * @returns {Promise<Array>} Array of group objects
+ * @returns {Promise<Array>} Array of group objects with detailed information
+ * 
+ * 
+ * [
+  {
+    id: 1,
+    name: "Marketing Team",
+    description: "Marketing department group",
+    createdAt: "2025-09-09T...",
+    updatedAt: "2025-09-09T...",
+    stats: {
+      totalMembers: 5,
+      totalCourses: 2
+    },
+    members: [
+      {
+        id: 1,
+        name: "John",
+        surname: "Doe",
+        email: "john@example.com",
+        number: "+1234567890",
+        department: "marketing",
+        company: "ACME Inc",
+        active: true,
+        joinedAt: "2025-09-09T..."
+      },
+      // ... other members
+    ],
+    courses: [
+      {
+        id: 1,
+        name: "Marketing 101",
+        description: "Introduction to Marketing",
+        totalLessons: 10,
+        totalQuizzes: 5,
+        assignedAt: "2025-09-09T..."
+      },
+      // ... other courses
+    ]
+  },
+  // ... other groups
+]
  */
+
 const getAdminGroups = async (adminId) => {
     try {
         const groups = await prisma.group.findMany({
             where: { adminId },
             include: {
+                members: {
+                    include: {
+                        learner: {
+                            select: {
+                                id: true,
+                                name: true,
+                                surname: true,
+                                email: true,
+                                number: true,
+                                department: true,
+                                company: true,
+                                active: true
+                            }
+                        }
+                    }
+                },
+                courses: {
+                    include: {
+                        course: {
+                            select: {
+                                id: true,
+                                name: true,
+                                description: true,
+                                totalLessons: true,
+                                totalQuizzes: true
+                            }
+                        }
+                    }
+                },
                 _count: {
                     select: {
                         members: true,
                         courses: true
                     }
                 }
+            },
+            orderBy: {
+                createdAt: 'desc' // Most recent groups first
             }
         });
 
-        return groups;
+        // Transform the response to a more friendly format
+        const formattedGroups = groups.map(group => ({
+            id: group.id,
+            name: group.name,
+            //description: group.description,
+            createdAt: group.createdAt,
+            updatedAt: group.updatedAt,
+            stats: {
+                totalMembers: group._count.members,
+                totalCourses: group._count.courses
+            },
+            members: group.members.map(member => ({
+                id: member.learner.id,
+                name: member.learner.name,
+                surname: member.learner.surname,
+                email: member.learner.email,
+                number: member.learner.number,
+                //department: member.learner.department,
+                //company: member.learner.company,
+                active: member.learner.active,
+                //joinedAt: member.joinedAt
+            })),
+            courses: group.courses.map(course => ({
+                id: course.course.id,
+                name: course.course.name,
+                description: course.course.description,
+                //totalLessons: course.course.totalLessons,
+                //totalQuizzes: course.course.totalQuizzes,
+                //assignedAt: course.assignedAt
+            }))
+        }));
+
+        return formattedGroups;
     } catch (error) {
         console.error('Get admin groups error:', error);
         throw new Error('Failed to get admin groups');
