@@ -14,11 +14,9 @@ const connection = new IORedis({
 
 
 connection.on('error', (err) => {
-  console.error('❌ Could not connect to Redis:');
-  console.error(err);
+  console.error('❌ Could not connect to Redis:', err);
 });
 
-// connection.connect();
 
 connection.on('connect', () => {
   console.log('✅ Successfully connected to Redis!');

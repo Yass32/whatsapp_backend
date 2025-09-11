@@ -86,14 +86,14 @@ const loginUser = async (userData) => {
         
         // Check if user exists
         if (!user) {
-            console.error("Login error: Admin email not found", email);
-            throw new Error('Admin not found');
+            console.error("Invalid email: ", email);
+            throw new Error('Invalid email');
         }
 
         // Compare provided password with stored hash
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
-            console.error("Login error: Invalid password for user", password);
+            console.error("Invalid password: ", password);
             throw new Error('Invalid password');
         }
 
@@ -108,7 +108,7 @@ const loginUser = async (userData) => {
         return { accessToken, refreshToken }; // Return both tokens
         */
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("Login error:", err.message); 
         throw new Error('Failed to login user'); // Generic error for security
     }
 }
@@ -126,7 +126,7 @@ const loginUser = async (userData) => {
 const getUser = async (userId) => {
     try {
         // Find admin user by ID (convert to number for safety)
-        const user = await prisma.admin.findUnique({
+        let user = await prisma.admin.findUnique({
             where: { id: Number(userId) }
         });
         

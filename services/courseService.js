@@ -247,7 +247,7 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
           name: courseData.name, // Course title
           description: courseData.description, // Course description
           coverImage: courseData.coverImage || null, // Optional cover image URL
-          adminId: courseData.adminId, // ID of the admin who created this course
+          adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
         },

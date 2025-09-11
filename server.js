@@ -115,7 +115,7 @@ app.use('/api/v1/groups', groupRoutes);
  */
 app.listen(PORT, async () => {
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
-    console.log(`📚 API Base URL: http://climbing-cosmic-pegasus.ngrok-free.app:${PORT}/api/v1`);
+    console.log(`📚 API Base URL: https://climbing-cosmic-pegasus.ngrok-free.app:${PORT}/api/v1`);
     
     // === INITIALIZE SERVICES ===
     
