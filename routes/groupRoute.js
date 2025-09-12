@@ -25,7 +25,7 @@ router.post('/', groupController.createGroup);
  * GET /groups
  * Get all groups for current admin
  */
-router.get('/', groupController.getAdminGroups);
+router.get('/:adminId', groupController.getAdminGroups);
 
 /**
  * GET /groups/:groupId

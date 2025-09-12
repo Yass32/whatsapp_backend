@@ -221,7 +221,8 @@ const getGroupDetails = async (request, response) => {
  */
 const getAdminGroups = async (request, response) => {
     try {
-        const adminId = request.user.userId; // From JWT token
+        //const adminId = request.user.userId; // From JWT token
+        const adminId = request.params.adminId; // From URL parameter
         const groups = await groupService.getAdminGroups(adminId);
 
         response.status(200).json({

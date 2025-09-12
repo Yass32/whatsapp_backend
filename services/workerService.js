@@ -69,7 +69,8 @@ const lessonProcessor = async (job) => {
     await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
 
     // Add a small delay to ensure proper message ordering
-    await new Promise(resolve => setTimeout(resolve, 6000));
+    await new Promise(resolve => setTimeout(resolve, 60000));
+
 
     // Send quiz if available
     if (lesson.quiz) {

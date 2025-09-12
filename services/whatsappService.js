@@ -413,11 +413,115 @@ const sendInteractiveListMessage = async (to, quizQuestion, options) => {
   }
 };
 
+/**
+ * Send a document message via WhatsApp Business API
+ * 
+ * @param {string} to - Recipient's WhatsApp number (with country code)
+ * @param {string} documentUrl - Publicly accessible URL of the document
+ * @param {string} [filename] - Optional custom filename for the document
+ * @param {string} [caption] - Optional caption for the document
+ * @returns {Object} Database record of the sent document message
+ * @throws {Error} If document sending or logging fails
+ */
+const sendDocument = async (to, documentUrl, filename, caption) => {
+  try {
+    // Construct the document payload according to WhatsApp API format
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to,
+      type: 'document',
+      document: {
+        link: documentUrl,
+        caption: caption || '',
+        filename: filename || 'document.pdf' // Default filename if not provided
+      }
+    };
+
+    // Send POST request to WhatsApp API with document payload
+    const response = await axios.post(baseUrl, payload, { headers });
+
+    // Log the sent document message to database
+    try {
+      const messageLog = await prisma.message.create({
+        data: {
+          messageId: response.data.messages[0].id,
+          from: "zenolearn",
+          to: response.data.contacts[0].wa_id,
+          body: filename || 'Document',
+          type: "document",
+          direction: "outgoing",
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)),
+        }
+      });
+      return messageLog;
+    } catch (error) {
+      console.error('Database logging error:', error);
+      throw new Error('Failed to log document message');
+    }
+  } catch (error) {
+    console.error('Error sending document:', error.response?.data || error.message);
+    throw new Error('Failed to send document message');
+  }
+};
+
+/**
+ * Send a video message via WhatsApp Business API
+ * 
+ * @param {string} to - Recipient's WhatsApp number (with country code)
+ * @param {string} videoUrl - Publicly accessible URL of the video
+ * @param {string} [caption] - Optional caption for the video
+ * @returns {Object} Database record of the sent video message
+ * @throws {Error} If video sending or logging fails
+ */
+const sendVideo = async (to, videoUrl, caption) => {
+  try {
+    // Construct the video payload according to WhatsApp API format
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to,
+      type: 'video',
+      video: {
+        link: videoUrl,
+        caption: caption || ''
+      }
+    };
+
+    // Send POST request to WhatsApp API with video payload
+    const response = await axios.post(baseUrl, payload, { headers });
+
+    // Log the sent video message to database
+    try {
+      const messageLog = await prisma.message.create({
+        data: {
+          messageId: response.data.messages[0].id,
+          from: "zenolearn",
+          to: response.data.contacts[0].wa_id,
+          body: 'Video message',
+          type: "video",
+          direction: "outgoing",
+          localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)),
+        }
+      });
+      return messageLog;
+    } catch (error) {
+      console.error('Database logging error:', error);
+      throw new Error('Failed to log video message');
+    }
+  } catch (error) {
+    console.error('Error sending video:', error.response?.data || error.message);
+    throw new Error('Failed to send video message');
+  }
+};
+
 // Export all WhatsApp service functions for use in other modules
 module.exports = {
   sendTextMessage, // Function to send simple text messages
   sendTemplateMessage, // Function to send template messages with parameters
   sendImageMessage, // Function to send image messages with optional captions
   sendInteractiveMessage, // Function to send interactive button messages (max 3 options)
-  sendInteractiveListMessage // Function to send interactive list messages (unlimited options)
+  sendInteractiveListMessage, // Function to send interactive list messages (unlimited options)
+  sendDocument, // Function to send document messages
+  sendVideo // Function to send video messages
 }

@@ -26,6 +26,39 @@ const whatsappController = require('../controllers/whatsappController');
 router.post('/send-text', whatsappController.sendTextMessage);
 
 /**
+ * POST /whatsapp/send-document
+ * Send document message
+ * 
+ * Sends a document (PDF, DOC, etc.) to specified WhatsApp number.
+ * Used for sharing course materials and documents.
+ * 
+ * Required body parameters:
+ * - to: Recipient's WhatsApp phone number
+ * - documentUrl: Publicly accessible URL of the document
+ * 
+ * Optional body parameters:
+ * - filename: Custom filename for the document
+ * - caption: Optional caption text for the document
+ */
+router.post('/send-document', whatsappController.sendDocument);
+
+/**
+ * POST /whatsapp/send-video
+ * Send video message
+ * 
+ * Sends a video to specified WhatsApp number.
+ * Used for sharing video tutorials and content.
+ * 
+ * Required body parameters:
+ * - to: Recipient's WhatsApp phone number
+ * - videoUrl: Publicly accessible URL of the video
+ * 
+ * Optional body parameters:
+ * - caption: Optional caption text for the video
+ */
+router.post('/send-video', whatsappController.sendVideo);
+
+/**
  * POST /whatsapp/send-template
  * Send template message
  * 
@@ -66,9 +99,33 @@ router.post('/send-image', whatsappController.sendImageMessage);
  * Required body parameters:
  * - to: Recipient's WhatsApp phone number
  * - quizQuestion: Question or prompt text
+ * 
  * Optional parameters:
- * - options: Array of button options for user selection
+ * - options: Array of button options (maximum 3) for user selection
+ * 
+ * Note: Limited to 3 buttons as per WhatsApp API restrictions
  */
 router.post('/send-interactive', whatsappController.sendInteractiveMessage);
+
+/**
+ * POST /whatsapp/send-interactive-list
+ * Send interactive list message
+ * 
+ * Sends an interactive list message with a dropdown of options.
+ * Used when you have more than 3 options for user selection.
+ * 
+ * Required body parameters:
+ * - to: Recipient's WhatsApp phone number
+ * - quizQuestion: Question or prompt text
+ * - options: Array of options (minimum 2) for the list
+ * 
+ * Example request body:
+ * {
+ *   "to": "1234567890",
+ *   "quizQuestion": "Select your preferred course:",
+ *   "options": ["Web Development", "Mobile App Development", "Data Science", "AI/ML"]
+ * }
+ */
+router.post('/send-interactive-list', whatsappController.sendInteractiveListMessage);
 
 module.exports = router;
