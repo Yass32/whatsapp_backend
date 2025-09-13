@@ -62,7 +62,9 @@ const addMembersToGroup = async (groupId, learnerIds) => {
             select: { learnerId: true }
         });
 
+        // Filter out already existing members
         const existingLearnerIds = new Set(existingMembers.map(m => m.learnerId));
+        // 
         const newLearnerIds = learnerIds.filter(id => !existingLearnerIds.has(id));
 
         if (newLearnerIds.length === 0) {
