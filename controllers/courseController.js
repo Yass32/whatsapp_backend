@@ -86,8 +86,168 @@ const deleteAllCourses = async (request, response) => {
     }
 };
 
+/**
+ * Get all courses created by the currently logged-in admin
+ * 
+ * Handles GET requests to retrieve all courses, lessons, and quizzes
+ * that were created by the authenticated admin user.
+ * 
+ * @param {Object} request - Express request object
+ * @param {string} request.user.id - ID of the authenticated admin (from JWT)
+ * @param {Object} response - Express response object
+ * @returns {void} Sends JSON response with courses data or error
+ */
+const getAdminCourses = async (request, response) => {
+    try {
+        // Get admin ID from the authenticated user (from JWT)
+        //const adminId = request.user.id;
+        const adminId = request.params.adminId;
+        
+        if (!adminId) {
+            return response.status(401).json({
+                error: 'Unauthorized',
+                message: 'Admin authentication required'
+            });
+        }
+
+        // Call service layer to get courses for this admin
+        const courses = await courseService.getAdminCourses(adminId);
+        
+        // Return success response with courses data
+        response.status(200).json({
+            success: true,
+            count: courses.length,
+            data: courses
+        });
+    } catch (error) {
+        // Log the error for debugging
+        console.error('Error in getAdminCourses:', error);
+        
+        // Return error response
+        response.status(500).json({
+            error: 'Internal Server Error',
+            message: error.message || 'Failed to retrieve admin courses'
+        });
+    }
+};
+
+/**
+ * Publish a course (change status from DRAFT to PUBLISHED)
+ * @param {Object} request - Express request object
+ * @param {Object} response - Express response object
+ */
+const publishCourse = async (request, response) => {
+    try {
+        const { courseId } = request.params;
+        const adminId = request.user.id;
+
+        if (!courseId || !adminId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Course ID and admin ID are required'
+            });
+        }
+
+        const course = await courseService.publishCourse(parseInt(courseId), parseInt(adminId));
+        
+        response.status(200).json({
+            success: true,
+            data: course
+        });
+    } catch (error) {
+        console.error('Error in publishCourse:', error);
+        response.status(500).json({
+            success: false,
+            error: error.message || 'Failed to publish course'
+        });
+    }
+};
+
+/**
+ * Archive a course (change status to ARCHIVED)
+ * @param {Object} request - Express request object
+ * @param {Object} response - Express response object
+ */
+const archiveCourse = async (request, response) => {
+    try {
+        const { courseId } = request.params;
+        const adminId = request.user.id;
+
+        if (!courseId || !adminId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Course ID and admin ID are required'
+            });
+        }
+
+        const course = await courseService.archiveCourse(parseInt(courseId), parseInt(adminId));
+        
+        response.status(200).json({
+            success: true,
+            data: course
+        });
+    } catch (error) {
+        console.error('Error in archiveCourse:', error);
+        response.status(500).json({
+            success: false,
+            error: error.message || 'Failed to archive course'
+        });
+    }
+};
+
+/**
+ * Update an existing draft course
+ * @param {Object} request - Express request object
+ * @param {Object} response - Express response object
+ */
+const updateCourse = async (request, response) => {
+  try {
+    const { courseId } = request.params;
+    const adminId = request.user.id;
+    const { course: courseData, lessons: lessonsData } = request.body;
+
+    if (!courseId || !adminId) {
+      return response.status(400).json({
+        success: false,
+        error: 'Course ID and admin ID are required'
+      });
+    }
+
+    // Validate required course data
+    if (!courseData || (courseData && Object.keys(courseData).length === 0)) {
+      return response.status(400).json({
+        success: false,
+        error: 'Course data is required'
+      });
+    }
+
+    // Update the course
+    const updatedCourse = await courseService.updateCourse(
+      parseInt(courseId),
+      parseInt(adminId),
+      courseData,
+      lessonsData || []
+    );
+
+    response.status(200).json({
+      success: true,
+      data: updatedCourse
+    });
+  } catch (error) {
+    console.error('Error in updateCourse:', error);
+    response.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update course'
+    });
+  }
+};
+
 // Export controller functions for use in route handlers
 module.exports = {
     createCourse, // Handler for creating new courses with lessons and scheduling
-    deleteAllCourses // Handler for deleting all courses and related data
-}
+    updateCourse, // Handler for updating existing draft courses
+    deleteAllCourses, // Handler for deleting all courses and related data
+    getAdminCourses, // Handler for getting all courses for the logged-in admin
+    publishCourse, // Handler for publishing a draft course
+    archiveCourse // Handler for archiving a course
+};

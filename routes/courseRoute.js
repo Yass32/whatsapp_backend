@@ -46,11 +46,90 @@ router.post('/create-course', courseController.createCourse);
  */
 router.delete('/all', courseController.deleteAllCourses);
 
+/**
+ * GET /courses/:adminId
+ * Get all courses for the logged-in admin
+ * 
+ * Retrieves all courses, lessons, and quizzes created by the authenticated admin.
+ * Requires valid admin authentication token in the Authorization header.
+ * 
+ * Response includes:
+ * - success: Boolean indicating success/failure
+ * - count: Number of courses found
+ * - data: Array of course objects with nested lessons and quizzes
+ * 
+ * Authentication: Required (Admin)
+ */
+//router.get('/admin', authenticateJWT, authorizeAdmin, courseController.getAdminCourses);
+// Get courses for a specific admin with optional status filter
+router.get('/:adminId', courseController.getAdminCourses);
+
+/**
+ * Publish a draft course
+ * PUT /courses/:courseId/publish
+ * 
+ * Changes the status of a course from DRAFT to PUBLISHED
+ * Only the course owner (admin) can publish a course
+ * 
+ * Authentication: Required (Admin)
+ */
+router.put('/:courseId/publish', authenticateJWT, authorizeAdmin, courseController.publishCourse);
+
+/**
+ * Archive a course
+ * PUT /courses/:courseId/archive
+ * 
+ * Changes the status of a course to ARCHIVED
+ * Only the course owner (admin) can archive a course
+ * 
+ * Authentication: Required (Admin)
+ */
+router.put('/:courseId/archive', authenticateJWT, authorizeAdmin, courseController.archiveCourse);
+
+/**
+ * Get courses by status
+ * GET /courses/status/:status
+ * 
+ * Retrieves courses filtered by status (DRAFT, PUBLISHED, ARCHIVED)
+ * Returns only courses owned by the authenticated admin
+ * 
+ * Authentication: Required (Admin)
+ */
+router.get('/status/:status', authenticateJWT, authorizeAdmin, (req, res) => {
+    const { status } = req.params;
+    const adminId = req.user.id;
+    
+    // Validate status
+    const validStatuses = ['DRAFT', 'PUBLISHED', 'ARCHIVED'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid status. Must be one of: DRAFT, PUBLISHED, ARCHIVED'
+        });
+    }
+    
+    return courseController.getAdminCourses({ ...req, params: { adminId } }, res, status);
+});
+
+/**
+ * Update a draft course
+ * PUT /courses/:courseId
+ * 
+ * Updates an existing draft course with new data including lessons and quizzes.
+ * Only the course owner (admin) can update the course.
+ * 
+ * Request body should contain:
+ * - course: { name, description, coverImage? }
+ * - lessons: Array of lesson objects with quizzes
+ * 
+ * Authentication: Required (Admin)
+ */
+router.put('/:courseId', authenticateJWT, authorizeAdmin, courseController.updateCourse);
+
 // Future route implementations:
-// GET /courses - List all courses with pagination
-// GET /courses/:id - Get specific course details
-// PUT /courses/:id - Update course information
-// DELETE /courses/:id - Delete specific course
+// GET /courses - List all published courses with pagination (public)
+// GET /courses/:id - Get course details with lessons and quizzes
+// DELETE /courses/:id - Delete a specific course
 // GET /courses/:id/progress - Get course progress for all learners
 // POST /courses/:id/enroll - Enroll learners in specific course
 

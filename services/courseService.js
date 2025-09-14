@@ -241,12 +241,13 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
   // Start a database transaction to ensure all operations succeed or fail together
   const { course, lessons, quizzes, enrollments, learnersToNotify } = await prisma.$transaction(async (tx) => {
     try {
-      // Step 1: Create the main course record
+      // Step 1: Create the main course record with DRAFT status by default
       const course = await tx.course.create({
         data: {
           name: courseData.name, // Course title
           description: courseData.description, // Course description
           coverImage: courseData.coverImage || null, // Optional cover image URL
+          status: 'DRAFT', // Default status for new courses
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
@@ -327,6 +328,11 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
       throw new Error('Failed to create course: ' + error.message);
     }
   }); // End of database transaction
+
+  if (course.status === 'DRAFT') {
+    console.log(`Course "${course.name}" created successfully in DRAFT status.`);
+    return { course, lessons, quizzes, enrollments, learnersToNotify };
+  }
 
   // Step 4: Queue course notifications for all enrolled learners
   console.log(`📲 Queuing notifications for course "${course.name}" to ${learnersToNotify.length} learners.`);
@@ -467,14 +473,333 @@ const deleteAllCourses = async () => {
   }
 };  
 
+/**
+ * Get all courses created by a specific admin
+ * 
+ * Fetches all courses along with their lessons and quizzes that were created by the specified admin.
+ * 
+ * @param {string} adminId - The ID of the admin whose courses to retrieve
+ * @returns {Promise<Array>} Array of course objects with nested lessons and quizzes
+ * @throws {Error} If database query fails
+ */
+const getAdminCourses = async (adminId) => {
+  try {
+    const courses = await prisma.course.findMany({
+      where: {
+        adminId: adminId // Filter courses by the specified admin ID
+      },
+      include: {
+        lessons: {
+          include: {
+            quiz: true // Include any quizzes associated with each lesson
+          },
+          orderBy: {
+            day: 'asc' // Order lessons by day in ascending order
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc' // Show most recently created courses first
+      }
+    });
+    
+    return courses;
+  } catch (error) {
+    console.error('Error fetching admin courses:', error);
+    throw new Error('Failed to retrieve admin courses');
+  }
+};
+
+/**
+ * Publish a course (change status from DRAFT to PUBLISHED)
+ * @param {number} courseId - The ID of the course to publish
+ * @param {number} adminId - The ID of the admin publishing the course
+ * @returns {Promise<Object>} The updated course
+ */
+const publishCourse = async (courseId, adminId) => {
+  try {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId, adminId }
+    });
+
+    if (!course) {
+      throw new Error('Course not found or you do not have permission');
+    }
+
+    if (course.status === 'PUBLISHED') {
+      throw new Error('Course is already published');
+    }
+
+    return await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: new Date()
+      },
+      include: {
+        lessons: true
+      }
+    });
+  } catch (error) {
+    console.error('Error publishing course:', error);
+    throw error;
+  }
+};
+
+/**
+ * Archive a course (change status to ARCHIVED)
+ * @param {number} courseId - The ID of the course to archive
+ * @param {number} adminId - The ID of the admin archiving the course
+ * @returns {Promise<Object>} The updated course
+ */
+const archiveCourse = async (courseId, adminId) => {
+  try {
+    const course = await prisma.course.findUnique({
+      where: { id: courseId, adminId }
+    });
+
+    if (!course) {
+      throw new Error('Course not found or you do not have permission');
+    }
+
+    return await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        status: 'ARCHIVED'
+      }
+    });
+  } catch (error) {
+    console.error('Error archiving course:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get courses by status
+ * @param {number} adminId - The ID of the admin
+ * @param {string} status - Status filter (DRAFT, PUBLISHED, ARCHIVED)
+ * @returns {Promise<Array>} List of courses
+ */
+const getCoursesByStatus = async (adminId, status) => {
+  try {
+    return await prisma.course.findMany({
+      where: { 
+        adminId,
+        ...(status && { status })
+      },
+      include: {
+        lessons: {
+          include: {
+            quiz: true
+          },
+          orderBy: {
+            day: 'asc'
+          }
+        },
+        _count: {
+          select: {
+            enrollments: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  } catch (error) {
+    console.error('Error getting courses by status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing draft course with new data
+ * @param {number} courseId - ID of the course to update
+ * @param {number} adminId - ID of the admin making the update
+ * @param {Object} courseData - Updated course data
+ * @param {Array} lessonsData - Updated lessons data
+ * @returns {Promise<Object>} Updated course with lessons and quizzes
+ */
+const updateCourse = async (courseId, adminId, courseData, lessonsData = []) => {
+  // Validate input
+  if (!courseId || !adminId) {
+    throw new Error('Course ID and admin ID are required');
+  }
+
+  // Start a database transaction
+  return await prisma.$transaction(async (tx) => {
+    try {
+      // 1. Verify the course exists, is a draft, and belongs to the admin
+      const existingCourse = await tx.course.findUnique({
+        where: { id: courseId },
+        include: { lessons: { include: { quiz: true } } }
+      });
+
+      if (!existingCourse) {
+        throw new Error('Course not found');
+      }
+
+      if (existingCourse.adminId !== adminId) {
+        throw new Error('You do not have permission to update this course');
+      }
+
+      if (existingCourse.status !== 'DRAFT') {
+        throw new Error('Only draft courses can be updated');
+      }
+
+      // 2. Update the course details
+      const updatedCourse = await tx.course.update({
+        where: { id: courseId },
+        data: {
+          name: courseData.name || existingCourse.name,
+          description: courseData.description || existingCourse.description,
+          coverImage: courseData.coverImage !== undefined ? courseData.coverImage : existingCourse.coverImage,
+          totalLessons: lessonsData.length || existingCourse.totalLessons,
+          totalQuizzes: lessonsData.length 
+            ? lessonsData.filter(lesson => lesson.quiz).length 
+            : existingCourse.totalQuizzes,
+          updatedAt: new Date()
+        },
+        include: {
+          lessons: true
+        }
+      });
+
+      // If no lessons data provided, return the updated course as is
+      if (!lessonsData || lessonsData.length === 0) {
+        return updatedCourse;
+      }
+
+      // 3. Handle lessons and quizzes updates
+      const existingLessons = existingCourse.lessons || [];
+      const updatedLessons = [];
+      const updatedQuizzes = [];
+
+      // Process each lesson in the provided lessons data
+      for (const lessonData of lessonsData) {
+        // Validate lesson data
+        if (!lessonData.title || !lessonData.content || lessonData.day === undefined) {
+          throw new Error('Each lesson must have a title, content, and day number');
+        }
+
+        // Check if this is an existing lesson (has an ID) or a new one
+        const existingLesson = existingLessons.find(l => l.id === lessonData.id);
+        
+        if (existingLesson) {
+          // Update existing lesson
+          const updatedLesson = await tx.lesson.update({
+            where: { id: existingLesson.id },
+            data: {
+              title: lessonData.title,
+              content: lessonData.content,
+              day: Number(lessonData.day),
+              updatedAt: new Date()
+            },
+            include: { quiz: true }
+          });
+          updatedLessons.push(updatedLesson);
+
+          // Handle quiz update if exists
+          if (lessonData.quiz) {
+            if (existingLesson.quiz) {
+              // Update existing quiz
+              const updatedQuiz = await tx.quiz.update({
+                where: { lessonId: existingLesson.id },
+                data: {
+                  question: lessonData.quiz.question,
+                  options: Array.isArray(lessonData.quiz.options) 
+                    ? lessonData.quiz.options 
+                    : JSON.parse(lessonData.quiz.options || '[]'),
+                  correctOption: lessonData.quiz.correctOption,
+                  updatedAt: new Date()
+                }
+              });
+              updatedQuizzes.push(updatedQuiz);
+            } else {
+              // Create new quiz
+              const newQuiz = await tx.quiz.create({
+                data: {
+                  question: lessonData.quiz.question,
+                  options: Array.isArray(lessonData.quiz.options) 
+                    ? lessonData.quiz.options 
+                    : JSON.parse(lessonData.quiz.options || '[]'),
+                  correctOption: lessonData.quiz.correctOption,
+                  lesson: { connect: { id: existingLesson.id } }
+                }
+              });
+              updatedQuizzes.push(newQuiz);
+            }
+          } else if (existingLesson.quiz) {
+            // Remove quiz if it existed but not in the update
+            await tx.quiz.delete({ where: { lessonId: existingLesson.id } });
+          }
+        } else {
+          // Create new lesson
+          const newLesson = await tx.lesson.create({
+            data: {
+              title: lessonData.title,
+              content: lessonData.content,
+              day: Number(lessonData.day),
+              course: { connect: { id: courseId } },
+              ...(lessonData.quiz && {
+                quiz: {
+                  create: {
+                    question: lessonData.quiz.question,
+                    options: Array.isArray(lessonData.quiz.options) 
+                      ? lessonData.quiz.options 
+                      : JSON.parse(lessonData.quiz.options || '[]'),
+                    correctOption: lessonData.quiz.correctOption
+                  }
+                }
+              })
+            },
+            include: { quiz: true }
+          });
+          updatedLessons.push(newLesson);
+          if (newLesson.quiz) {
+            updatedQuizzes.push(newLesson.quiz);
+          }
+        }
+      }
+
+      // 4. Delete lessons that weren't included in the update
+      const updatedLessonIds = updatedLessons.map(l => l.id);
+      const lessonsToDelete = existingLessons.filter(l => !updatedLessonIds.includes(l.id));
+      
+      if (lessonsToDelete.length > 0) {
+        await tx.lesson.deleteMany({
+          where: {
+            id: { in: lessonsToDelete.map(l => l.id) }
+          }
+        });
+      }
+
+      // 5. Return the complete updated course with lessons and quizzes
+      return {
+        ...updatedCourse,
+        lessons: updatedLessons,
+        quizzes: updatedQuizzes
+      };
+
+    } catch (error) {
+      console.error('Error updating course:', error);
+      throw new Error(`Failed to update course: ${error.message}`);
+    }
+  });
+};
+
 // Export all course service functions for use in other modules
 module.exports = {
   createCourse, // Function to create complete courses with lessons, quizzes, and enrollments
+  updateCourse, // Function to update existing draft courses
   updateCourseProgress, // Function to track learner progress through lessons and quizzes
+  getAdminCourses: getCoursesByStatus, // Alias for backward compatibility
+  publishCourse,
+  archiveCourse,
+  getCoursesByStatus,
   deleteAllCourses, // Function to delete all course data (for testing/cleanup)
   scheduleLessons // Function to schedule automated lesson delivery via cron jobs
 }
-
 /*
 {
   "courseData": {

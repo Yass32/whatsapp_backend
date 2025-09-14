@@ -84,7 +84,6 @@ model Learner {
   updatedAt       DateTime           @updatedAt
 }
 
-
 enum Department {
   marketing
   it
@@ -92,15 +91,18 @@ enum Department {
   other
 }
 
+
 model Course {
   id             Int               @id @default(autoincrement())
   name           String
   description    String
   coverImage     String?
+  status         CourseStatus      @default(DRAFT)
+  publishedAt    DateTime?         // When the course was published
   admin          Admin             @relation(fields: [adminId], references: [id])
   adminId        Int
-  totalLessons   Int               @default(0)// Total lessons in the course
-  totalQuizzes   Int               @default(0)// Total quizzes in the course
+  totalLessons   Int               @default(0) // Total lessons in the course
+  totalQuizzes   Int               @default(0) // Total quizzes in the course
   lessons        Lesson[]   
   enrollments    Enrollment[]  
   courseProgress CourseProgress[]  // Track learner progress in this course
@@ -110,6 +112,13 @@ model Course {
   updatedAt      DateTime          @updatedAt
 
   @@index([adminId])
+  @@index([status])
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 
