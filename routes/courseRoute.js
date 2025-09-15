@@ -129,6 +129,7 @@ router.put('/:courseId', authenticateJWT, authorizeAdmin, courseController.updat
 // Future route implementations:
 // GET /courses - List all published courses with pagination (public)
 // GET /courses/:id - Get course details with lessons and quizzes
+// PUT /courses/:id - Update course information
 // DELETE /courses/:id - Delete a specific course
 // GET /courses/:id/progress - Get course progress for all learners
 // POST /courses/:id/enroll - Enroll learners in specific course

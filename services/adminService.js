@@ -97,6 +97,7 @@ const loginUser = async (userData) => {
             throw new Error('Invalid password');
         }
 
+        console.log("Login successful for user: ", user);
         return {user, message: "Login successful"}
 
         /*

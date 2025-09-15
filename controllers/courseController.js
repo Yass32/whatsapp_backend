@@ -101,7 +101,7 @@ const getAdminCourses = async (request, response) => {
     try {
         // Get admin ID from the authenticated user (from JWT)
         //const adminId = request.user.id;
-        const adminId = request.params.adminId;
+        const adminId = Number(request.params.adminId);
         
         if (!adminId) {
             return response.status(401).json({
@@ -114,11 +114,7 @@ const getAdminCourses = async (request, response) => {
         const courses = await courseService.getAdminCourses(adminId);
         
         // Return success response with courses data
-        response.status(200).json({
-            success: true,
-            count: courses.length,
-            data: courses
-        });
+        response.status(200).json(courses);
     } catch (error) {
         // Log the error for debugging
         console.error('Error in getAdminCourses:', error);

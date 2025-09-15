@@ -484,6 +484,7 @@ const deleteAllCourses = async () => {
  */
 const getAdminCourses = async (adminId) => {
   try {
+    // First, get all courses with their lessons
     const courses = await prisma.course.findMany({
       where: {
         adminId: adminId // Filter courses by the specified admin ID
@@ -496,14 +497,62 @@ const getAdminCourses = async (adminId) => {
           orderBy: {
             day: 'asc' // Order lessons by day in ascending order
           }
+        },
+        courseProgress: {
+          select: {
+            progressPercent: true // We only need the progress percentage
+          }
+        },
+        _count: {
+          select: {
+            enrollments: true // Get the count of enrollments directly
+          }
         }
       },
       orderBy: {
         createdAt: 'desc' // Show most recently created courses first
       }
     });
-    
-    return courses;
+
+    // Calculate average progress for each course
+    const coursesWithProgress = courses.map(course => {
+      const totalEnrollments = course._count.enrollments;
+      const totalProgress = course.courseProgress.reduce(
+        (sum, progress) => sum + (progress.progressPercent || 0), 0
+      );
+      const averageProgress = course.courseProgress.length > 0 
+        ? Math.round((totalProgress / course.courseProgress.length) * 100) / 100 // Round to 2 decimal places
+        : 0;
+
+      // Remove internal fields from the response
+      const { courseProgress, _count, ...courseData } = course;
+      
+      return {
+        ...courseData,
+        averageProgress,
+        totalEnrollments
+      };
+    });
+
+    // Get total learners count across all courses
+    const learnersCount = await prisma.learner.count({
+      where: {
+        adminId: adminId
+      }
+    });
+
+    // Number of groups created by admin
+    const groupsCount = await prisma.group.count({
+      where: {
+        adminId: adminId
+      }
+    });
+
+    return { 
+      courses: coursesWithProgress, 
+      learnersCount, 
+      groupsCount 
+    };
   } catch (error) {
     console.error('Error fetching admin courses:', error);
     throw new Error('Failed to retrieve admin courses');
@@ -793,10 +842,10 @@ module.exports = {
   createCourse, // Function to create complete courses with lessons, quizzes, and enrollments
   updateCourse, // Function to update existing draft courses
   updateCourseProgress, // Function to track learner progress through lessons and quizzes
-  getAdminCourses: getCoursesByStatus, // Alias for backward compatibility
-  publishCourse,
-  archiveCourse,
-  getCoursesByStatus,
+  getAdminCourses,  // Function to get all courses for the logged-in admin
+  getCoursesByStatus, // Function to get courses by status
+  publishCourse, // Function to publish a draft course
+  archiveCourse, // Function to archive a course
   deleteAllCourses, // Function to delete all course data (for testing/cleanup)
   scheduleLessons // Function to schedule automated lesson delivery via cron jobs
 }
