@@ -837,10 +837,84 @@ const updateCourse = async (courseId, adminId, courseData, lessonsData = []) => 
   });
 };
 
+/**
+ * Delete a course and all its related data
+ * 
+ * This function performs a cascading delete of a course and all its related data:
+ * 1. Message contexts
+ * 2. Course progress records
+ * 3. Enrollments
+ * 4. Quizzes
+ * 5. Lessons
+ * 6. The course itself
+ * 
+ * @param {number} courseId - The ID of the course to delete
+ * @param {number} adminId - The ID of the admin requesting deletion
+ * @returns {Promise<Object>} The deleted course
+ * @throws {Error} If course not found or admin is not authorized
+ */
+const deleteCourse = async (courseId) => {
+    return await prisma.$transaction(async (prisma) => {
+        // First verify the course exists
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            select: { id: true }
+        });
+
+        if (!course) {
+            throw new Error('Course not found');
+        }
+
+        // Delete GroupCourse associations first
+        await prisma.groupCourse.deleteMany({
+            where: { courseId }
+        });
+
+        // Delete enrollments
+        await prisma.enrollment.deleteMany({
+            where: { courseId }
+        });
+
+        // Delete course progress records
+        await prisma.courseProgress.deleteMany({
+            where: { courseId }
+        });
+
+        // Get lesson IDs to delete their quizzes and progress
+        const lessons = await prisma.lesson.findMany({
+            where: { courseId },
+            select: { id: true }
+        });
+        const lessonIds = lessons.map(lesson => lesson.id);
+
+        // Delete quizzes for these lessons
+        if (lessonIds.length > 0) {
+            await prisma.quiz.deleteMany({
+                where: { lessonId: { in: lessonIds } }
+            });
+        }
+
+        // Delete lessons
+        await prisma.lesson.deleteMany({
+            where: { courseId }
+        });
+
+        // Finally, delete the course
+        const deletedCourse = await prisma.course.delete({
+            where: { id: courseId }
+        });
+
+        return deletedCourse;
+    });
+};
+
+
+
 // Export all course service functions for use in other modules
 module.exports = {
   createCourse, // Function to create complete courses with lessons, quizzes, and enrollments
   updateCourse, // Function to update existing draft courses
+  deleteCourse, // Function to delete a course and all its related data
   updateCourseProgress, // Function to track learner progress through lessons and quizzes
   getAdminCourses,  // Function to get all courses for the logged-in admin
   getCoursesByStatus, // Function to get courses by status

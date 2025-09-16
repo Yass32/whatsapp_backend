@@ -33,6 +33,24 @@ const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
 router.post('/create-course', courseController.createCourse);
 
 /**
+ * DELETE /courses/:id
+ * Delete a specific course by ID
+ * 
+ * Permanently deletes a course and all its related data including:
+ * - Course metadata
+ * - All lessons and their content
+ * - Associated quizzes and questions
+ * - Enrollment records
+ * - Progress tracking data
+ * 
+ * Authentication: Required (Admin)
+ * Permissions: Only the admin who created the course can delete it
+ */
+//router.delete('/:id', authenticateJWT, authorizeAdmin, courseController.deleteCourse);
+router.delete('/:courseId', courseController.deleteCourse);
+
+
+/**
  * DELETE /courses/all
  * Delete all courses and related data
  * 

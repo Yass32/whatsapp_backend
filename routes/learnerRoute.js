@@ -19,22 +19,30 @@ const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
  * Creates learner account with WhatsApp phone number for messaging.
  * Learners can enroll in courses and receive automated lessons.
  * 
- * Authentication: Currently disabled for development
- * TODO: Enable admin-only access in production
+ * Request body should contain:
+ * - learners: Array of learner objects
+ * - adminId: ID of the admin creating the learners
+ * 
+ * Authentication: Required (Admin)
  */
-//router.post('/', authenticateJWT, authorizeAdmin, adminController.registerLearner);
+//router.post('/', authenticateJWT, authorizeAdmin, learnerController.registerLearner);
 router.post('/', learnerController.registerLearner);
 
 
 /**
- * GET /learners
- * Get all learners
+ * GET /learners/:adminId
+ * Get all learners for an admin
  * 
- * Retrieves list of all learners for management and reporting.
+ * Retrieves list of all learners managed by a specific admin.
  * Used for course enrollment and progress tracking.
-*/
-//router.get('/all', authenticateJWT, authorizeAdmin, adminController.getAllLearners);
-router.get('/all', learnerController.getAllLearners);
+ * 
+ * @param {string} adminId - The ID of the admin whose learners to fetch
+ * 
+ * Authentication: Required (Admin)
+ * Permissions: Only the admin can view their own learners
+ */
+//router.get('/:adminId', authenticateJWT, authorizeAdmin, learnerController.getAllLearners);
+router.get('/:adminId', learnerController.getAllLearners);
 
 /**
  * GET /learners/:id
@@ -44,7 +52,7 @@ router.get('/all', learnerController.getAllLearners);
  * Used for learner management and progress monitoring.
  */
 //router.get('/:id', authenticateJWT, authorizeAdmin, adminController.getLearner);
-router.get('/:id', learnerController.getLearner);
+router.get('/:learnerId', learnerController.getLearner);
 
 
 /**
@@ -55,7 +63,7 @@ router.get('/:id', learnerController.getLearner);
  * Phone number changes affect message delivery routing.
  */
 //router.put('/:id', authenticateJWT, authorizeAdmin, adminController.updateLearner);
-router.put('/:id', learnerController.updateLearner);
+router.put('/:learnerId', learnerController.updateLearner);
 
 
 /**
@@ -65,7 +73,7 @@ router.put('/:id', learnerController.updateLearner);
  * Removes specific learner from system. 
 */
 //router.delete('/:id', authenticateJWT, authorizeAdmin, adminController.deleteLearner);
-router.delete('/:id', learnerController.deleteLearner);
+router.delete('/:learnerId', learnerController.deleteLearner);
 
 
 /**

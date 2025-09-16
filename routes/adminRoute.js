@@ -67,7 +67,7 @@ router.get('/all', adminController.getAllUsers);
  * Retrieves specific admin user details for profile viewing.
  */
 //router.get('/admin/:id', authenticateJWT, authorizeAdmin, userController.getUser);
-router.get('/:id', adminController.getUser);
+router.get('/:adminId', adminController.getUser);
 
 
 /**
@@ -78,7 +78,7 @@ router.get('/:id', adminController.getUser);
  * Passwords are automatically hashed before storage.
  */
 //router.put('/admin/:id', authenticateJWT, authorizeAdmin, userController.updateUser);
-router.put('/:id', adminController.updateUser);
+router.put('/:adminId', adminController.updateUser);
 
 
 /**
@@ -89,7 +89,7 @@ router.put('/:id', adminController.updateUser);
  * Use with caution as operation cannot be undone.
  */
 //router.delete('/admin/:id', authenticateJWT, authorizeAdmin, userController.deleteUser);
-router.delete('/:id', adminController.deleteUser);
+router.delete('/:adminId', adminController.deleteUser);
 
 
 /**

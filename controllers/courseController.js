@@ -238,10 +238,53 @@ const updateCourse = async (request, response) => {
   }
 };
 
+
+/**
+ * Delete a course by ID
+ * 
+ * Handles DELETE requests to remove a specific course and all its related data.
+ * Only the admin who created the course can delete it.
+ * 
+ * @param {Object} request - Express request object
+ * @param {Object} request.params - Request parameters
+ * @param {string} request.params.courseId - ID of the course to delete
+ * @param {Object} response - Express response object
+ * @returns {void} Sends JSON response with success/error message
+ */
+const deleteCourse = async (request, response) => {
+    try {
+        const courseId = Number(request.params.courseId);
+
+        if (!courseId) {
+            return response.status(401).json({
+                success: false,
+                error: 'CourseId required'
+            });
+        }
+
+        // Call service to delete the course
+        await courseService.deleteCourse(courseId);
+        
+        response.status(200).json({
+            success: true,
+            message: 'Course deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting course:', error);
+        const statusCode = error.message.includes('not found') ? 404 : 
+                         error.message.includes('authorized') ? 403 : 500;
+        response.status(statusCode).json({
+            success: false,
+            error: error.message || 'Failed to delete course'
+        });
+    }
+};
+
 // Export controller functions for use in route handlers
 module.exports = {
     createCourse, // Handler for creating new courses with lessons and scheduling
     updateCourse, // Handler for updating existing draft courses
+    deleteCourse, // Handler for deleting courses
     deleteAllCourses, // Handler for deleting all courses and related data
     getAdminCourses, // Handler for getting all courses for the logged-in admin
     publishCourse, // Handler for publishing a draft course

@@ -53,6 +53,8 @@ const addMembersToGroup = async (groupId, learnerIds) => {
             throw new Error('Group not found');
         }
 
+        console.log("learnerIds from groupservice", learnerIds);
+
         // Get existing memberships to avoid duplicates
         const existingMembers = await prisma.groupMember.findMany({
             where: {
@@ -63,12 +65,16 @@ const addMembersToGroup = async (groupId, learnerIds) => {
         });
 
         // Filter out already existing members
-        const existingLearnerIds = new Set(existingMembers.map(m => m.learnerId));
-        // 
+        const existingLearnerIds = new Set(existingMembers.map(member => member.learnerId));
         const newLearnerIds = learnerIds.filter(id => !existingLearnerIds.has(id));
 
         if (newLearnerIds.length === 0) {
-            return { count: 0 };
+            return { 
+                success: true, 
+                count: 0, 
+                message: 'All learners already in group',
+                data: []
+            };
         }
 
         // Add new members in bulk
@@ -79,7 +85,12 @@ const addMembersToGroup = async (groupId, learnerIds) => {
             }))
         });
 
-        return { count: result.count };
+        return { 
+            success: true, 
+            count: result.count, 
+            message: 'Members added successfully',
+            data: result
+        };
     } catch (error) {
         console.error('Add members error:', error);
         throw new Error('Failed to add members to group');
@@ -102,7 +113,12 @@ const removeMembersFromGroup = async (groupId, learnerIds) => {
             }
         });
 
-        return { count: result.count };
+        return { 
+            success: true, 
+            count: result.count, 
+            message: 'Members removed successfully',
+            data: result
+        };
     } catch (error) {
         console.error('Remove members error:', error);
         throw new Error('Failed to remove members from group');

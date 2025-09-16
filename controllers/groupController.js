@@ -20,27 +20,22 @@ const createGroup = async (request, response) => {
     try {
         const groupData = {
             name: request.body.name,
-            adminId: request.body.userId
+            adminId: Number(request.body.adminId)
             //adminId: request.user.userId From JWT token
         };
 
         // Validate required fields
         if (!groupData.name) {
             return response.status(400).json({
-                status: 'error',
                 message: 'Group name is required'
             });
         }
 
         const group = await groupService.createGroup(groupData);
         
-        response.status(201).json({
-            status: 'success',
-            data: group
-        });
+        response.status(201).json(group);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -66,17 +61,13 @@ const addGroupMembers = async (request, response) => {
         }
 
         const result = await groupService.addMembersToGroup(
-            parseInt(groupId),
-            learnerIds.map(id => parseInt(id))
+            Number(groupId),
+            learnerIds.map(id => Number(id))
         );
 
-        response.status(200).json({
-            status: 'success',
-            data: result
-        });
+        response.status(200).json(result);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -102,17 +93,13 @@ const removeGroupMembers = async (request, response) => {
         }
 
         const result = await groupService.removeMembersFromGroup(
-            parseInt(groupId),
-            learnerIds.map(id => parseInt(id))
+            Number(groupId),
+            learnerIds.map(id => Number(id))
         );
 
-        response.status(200).json({
-            status: 'success',
-            data: result
-        });
+        response.status(200).json(result);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -138,17 +125,13 @@ const assignGroupCourses = async (request, response) => {
         }
 
         const result = await groupService.assignCoursesToGroup(
-            parseInt(groupId),
-            courseIds.map(id => parseInt(id))
+            Number(groupId),
+            courseIds.map(id => Number(id))
         );
 
-        response.status(200).json({
-            status: 'success',
-            data: result
-        });
+        response.status(200).json(result);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -174,17 +157,13 @@ const removeGroupCourses = async (request, response) => {
         }
 
         const result = await groupService.removeCoursesFromGroup(
-            parseInt(groupId),
-            courseIds.map(id => parseInt(id))
+            Number(groupId),
+            courseIds.map(id => Number(id))
         );
 
-        response.status(200).json({
-            status: 'success',
-            data: result
-        });
+        response.status(200).json(result);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -198,16 +177,12 @@ const removeGroupCourses = async (request, response) => {
  */
 const getGroupDetails = async (request, response) => {
     try {
-        const { groupId } = request.params;
-        const group = await groupService.getGroupDetails(parseInt(groupId));
+        const groupId = Number(request.params.groupId);
+        const group = await groupService.getGroupDetails(groupId);
 
-        response.status(200).json({
-            status: 'success',
-            data: group
-        });
+        response.status(200).json(group);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -222,16 +197,12 @@ const getGroupDetails = async (request, response) => {
 const getAdminGroups = async (request, response) => {
     try {
         //const adminId = request.user.userId; // From JWT token
-        const adminId = request.params.adminId; // From URL parameter
+        const adminId = Number(request.params.adminId); // From URL parameter
         const groups = await groupService.getAdminGroups(adminId);
 
-        response.status(200).json({
-            status: 'success',
-            data: groups
-        });
+        response.status(200).json(groups);
     } catch (error) {
         response.status(500).json({
-            status: 'error',
             message: error.message
         });
     }
@@ -286,13 +257,10 @@ const updateGroup = async (request, response) => {
  */
 const deleteGroup = async (request, response) => {
     try {
-        const { groupId } = request.params;
-        const group = await groupService.deleteGroup(parseInt(groupId));
+        const groupId  = Number(request.params.groupId);
+        const group = await groupService.deleteGroup(groupId);
 
-        response.status(200).json({
-            status: 'success',
-            data: group
-        });
+        response.status(200).json({message: "Group deleted successfully", group});
     } catch (error) {
         response.status(500).json({
             status: 'error',

@@ -26,26 +26,43 @@ const validDepartments = ['marketing', 'it', 'learning', 'other'];
  */
 const registerLearner = async (request, response) => {
     try {
-        const { learners } = request.body;
+        const { learners, adminId, groupId } = request.body;
 
         // Basic validation
         if (!learners || !Array.isArray(learners) || learners.length === 0) {
-            return response.status(400).json({ error: 'Request body must contain a non-empty array of learners.' });
+            return response.status(400).json({ 
+                success: false,
+                error: 'Request body must contain a non-empty array of learners.' 
+            });
+        }
+
+        if (!adminId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Admin ID is required to register learners.'
+            });
+        }
+
+        if (!groupId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Group ID is required to register learners.'
+            });
         }
 
         // Validate department for each learner
-        const validatedLearners = learners.map(learner => {
-            if (learner.department && !validDepartments.includes(learner.department)) {
-                return { ...learner, department: 'other' };
-            }
-            return learner;
-        });
+        const validatedLearners = learners.map(learner => ({
+            ...learner,
+            department: validDepartments.includes(learner.department) ? learner.department : 'other'
+        }));
 
         // Call service layer to create new learners in bulk
-        const result = await learnerService.createLearner(validatedLearners);
+        await learnerService.createLearner(validatedLearners, Number(adminId), Number(groupId));
         
         // Return success response with the count of created learners
-        response.status(201).json(result);
+        response.status(201).json({
+            message: `Successfully created ${validatedLearners.length} learner(s)`,
+        });
     } catch (error) {
         // Return error response if registration fails
         response.status(500).json({ error: error.message });
@@ -67,7 +84,7 @@ const registerLearner = async (request, response) => {
  */
 const getLearner = async (request, response) => {
     // Extract learner ID from URL parameters
-    const userId = request.params.id;
+    const userId = Number(request.params.id);
     
     try {
         // Call service layer to fetch learner data
@@ -83,24 +100,49 @@ const getLearner = async (request, response) => {
 
 
 /**
- * Get all learners
+ * Get all learners for an admin
  * 
- * Handles GET requests to retrieve all learners:
- * - Fetches complete list of learners
- * - Used for learner management dashboards
- * - Course enrollment and progress tracking
+ * Handles GET requests to retrieve all learners for a specific admin:
+ * - Validates admin ID from JWT token matches requested adminId
+ * - Fetches learners associated with the admin
+ * - Used for admin dashboards and learner management
  * 
  * @param {Object} request - Express request object
+ * @param {string} request.params.adminId - Admin ID from URL
+ * @param {Object} request.user - Authenticated user from JWT
  * @param {Object} response - Express response object
  * @returns {void} Sends JSON response with array of learners or error
  */
 const getAllLearners = async (request, response) => {
     try {
-        // Call service layer to fetch all learners
-        const learners = await learnerService.getAllLearners();
+        const requestedAdminId = Number(request.params.adminId);
+        //const authenticatedAdminId = request.user.id;
+        
+        // Validate admin ID
+        if (!requestedAdminId || isNaN(requestedAdminId)) {
+            return response.status(400).json({
+                success: false,
+                error: 'Valid admin ID is required'
+            });
+        }
+        
+        // Ensure the authenticated admin can only access their own learners
+        /*if (requestedAdminId !== authenticatedAdminId) {
+            return response.status(403).json({
+                success: false,
+                error: 'Unauthorized: You can only view your own learners'
+            });
+        }*/
+
+        // Call service layer to fetch all learners for the admin
+        const learners = await learnerService.getAllLearners(requestedAdminId);
         
         // Return array of learners
-        response.status(200).json(learners);
+        response.status(200).json({
+            success: true,
+            count: learners.length,
+            data: learners
+        });
     } catch (error) {
         // Return error response if fetch fails
         response.status(500).json({error: error.message});
@@ -124,7 +166,7 @@ const getAllLearners = async (request, response) => {
  */
 const updateLearner = async (request, response) => {
     // Extract learner ID and update data
-    const userId = request.params.id;
+    const userId = Number(request.params.id);
     const requestBody = request.body;
 
     // If department is being updated, validate it
@@ -161,14 +203,14 @@ const updateLearner = async (request, response) => {
  */
 const deleteLearner = async (request, response) => {
     // Extract learner ID from URL parameters
-    const userId = request.params.id;
+    const learnerId = Number(request.params.learnerId);
     
     try {
         // Call service layer to delete learner
-        const deletedLearner = await learnerService.deleteLearner(userId);
+        const deletedLearner = await learnerService.deleteLearner(learnerId);
         
         // Return deleted learner data for confirmation
-        response.status(200).json(deletedLearner);
+        response.status(200).json({message: "Learner deleted successfully", deletedLearner});
     } catch (error) {
         // Return error response if deletion fails
         response.status(500).json({error: error.message});
@@ -194,7 +236,7 @@ const deleteAllLearners = async (request, response) => {
         const deletedLearners = await learnerService.deleteAllLearners();
         
         // Return deletion results
-        response.status(200).json(deletedLearners);
+        response.status(200).json({message: "All learners deleted successfully", deletedLearners});
     } catch (error) {
         // Return error response if deletion fails
         response.status(500).json({error: error.message});

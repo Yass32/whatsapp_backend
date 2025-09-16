@@ -11,6 +11,7 @@
 const { PrismaClient } = require('../generated/prisma');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
 const { welcomeQueue, addJobToQueue } = require('./queueService');
+const groupService = require('./groupService');
 // Initialize Prisma client with Accelerate extension for optimized queries
 const prisma = new PrismaClient().$extends(withAccelerate())
 
@@ -19,52 +20,74 @@ const prisma = new PrismaClient().$extends(withAccelerate())
  * Create one or more new learner accounts in the system.
  * 
  * Registers new students/learners who can enroll in courses. This function
- * is designed for bulk creation and uses `createMany` for efficiency.
  * 
- * @param {Array<Object>} learnersData - An array of learner registration data objects.
- * @param {string} learnersData[].name - Learner's first name.
- * @param {string} learnersData[].surname - Learner's last name.
- * @param {string} learnersData[].email - Learner's unique email address.
- * @param {string} learnersData[].number - Learner's WhatsApp phone number.
- * @param {string} learnersData[].department - Learner's department.
- * @param {string} learnersData[].company - Learner's company.
- * @returns {Object} An object containing the count of created learners.
- * @throws {Error} If the bulk creation fails.
+ * @param {Array} learnersData - Array of learner objects to create
+ * @param {number} adminId - ID of the admin creating the learners
+ * @returns {Object} Object with count of created learners and success/error info
+ * @throws {Error} If creation fails or adminId is invalid
  */
-const createLearner = async (learnersData) => {
+const createLearner = async (learnersData, adminId, groupId) => {
     try {
-        // Find which learners are actually new
-        const incomingEmails = learnersData.map(learner => learner.email);
-        console.log(`Incoming emails: ${incomingEmails}`);
+        // Validate input
+        if (!Array.isArray(learnersData) || learnersData.length === 0) {
+            throw new Error('Learners data must be a non-empty array');
+        }
+        
+        if (!adminId || isNaN(adminId)) {
+            throw new Error('Valid admin ID is required');
+        }
+
+        // Verify admin and group exist
+        const [admin, group] = await Promise.all([
+            prisma.admin.findUnique({
+                where: { id: adminId },
+                select: { id: true }
+            }),
+            prisma.group.findUnique({
+                where: { id: groupId },
+                select: { id: true }
+            })
+        ]);
+        if (!admin) throw new Error('Admin not found');
+        if (!group) throw new Error('Group not found');
+
+        // Get existing learners to avoid duplicates
         const existingLearners = await prisma.learner.findMany({
             where: {
-                email: { in: incomingEmails },
+                OR: learnersData.map(learner => ({
+                    email: learner.email
+                }))
             },
-            select: {
-                email: true, // Select only the email for efficiency
-            },
+            select: { email: true, id: true }
         });
-        console.log(`Existing learners: ${existingLearners}`);
-        // Convert existing learners to a Set for O(1) lookups
-        // This is more efficient than using `includes` in a loop
+
+        // Get existing learner emails to avoid duplicates
         const existingEmails = new Set(existingLearners.map(learner => learner.email));
 
         // Filter out existing learners
         const newLearnersData = learnersData.filter(learner => !existingEmails.has(learner.email));
 
-        console.log(`New learners: ${newLearnersData}`);
-
-        // If there are no new learners, return early
-        if (newLearnersData.length === 0) {
-            return { count: 0 };
+        // Create new learners and get their IDs
+        let newLearnerIds = [];
+        if (newLearnersData.length > 0) {
+            // Create new learners and get their data with IDs
+            const createdLearners = await Promise.all(newLearnersData.map(learner => 
+                prisma.learner.create({
+                    data: learner,
+                    select: { id: true }
+                })
+            ));
+            newLearnerIds = createdLearners.map(learner => learner.id);
         }
 
-        // Create only the new learners
-        const result = await prisma.learner.createMany({
-            data: newLearnersData,
-        });
+        // Get existing learner IDs
+        const existingLearnerIds = existingLearners.map(learner => learner.id);
 
-        console.log(`Created ${result.count} new learners`);
+        // Combine all learner IDs
+        const allLearnerIds = [...newLearnerIds, ...existingLearnerIds];
+
+        // Add the learners to the group
+        const groupMembers = await groupService.addMembersToGroup(groupId, allLearnerIds);
 
         // Queue welcome messages only for the newly created learners
         for (const learner of newLearnersData) {
@@ -72,10 +95,10 @@ const createLearner = async (learnersData) => {
             addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
         }
         
-        return result; // Returns { count: <number of learners created> }
+        return;
     } catch (error) {
         console.error("Learner creation error:", error); 
-        throw new Error('Failed to register learners');
+        throw new Error(`Failed to register learners: ${error.message}`);
     }
 };
 
@@ -109,21 +132,35 @@ const getLearner = async (userId) => {
 }
 
 /**
- * Retrieve all learners from the system
+ * Get all learners for a specific admin
  * 
- * Fetches complete list of learners for management and reporting purposes.
- * Used in admin dashboards and learner management interfaces.
+ * Fetches all learners associated with a specific admin.
+ * Used for admin management and reporting.
  * 
- * @returns {Array} Array of learner objects
- * @throws {Error} If database query fails
+ * @param {number} adminId - The ID of the admin whose learners to fetch
+ * @returns {Promise<Array>} Array of learner objects
+ * @throws {Error} If database query fails or adminId is invalid
  */
-const getAllLearners = async () => {
+const getAllLearners = async (adminId) => {
     try {
-        // Fetch all learners from database
-        const learners = await prisma.learner.findMany();
-        return learners; // Return array of learners
+        if (!adminId || isNaN(adminId)) {
+            throw new Error('Valid admin ID is required');
+        }
+
+        // Fetch all learners for the specified admin
+        const learners = await prisma.learner.findMany({
+            where: {
+                adminId: Number(adminId)
+            },
+            orderBy: {
+                createdAt: 'desc' // Newest first
+            }
+        });
+        
+        return learners;
     } catch (error) {
-        throw new Error('Failed to get all learners'); // Generic error message
+        console.error('Error in getAllLearners:', error);
+        throw new Error(error.message || 'Failed to fetch learners');
     }
 }
 
