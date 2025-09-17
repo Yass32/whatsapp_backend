@@ -246,8 +246,8 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
         data: {
           name: courseData.name, // Course title
           description: courseData.description, // Course description
-          coverImage: courseData.coverImage || null, // Optional cover image URL
-          status: 'DRAFT', // Default status for new courses
+          coverImage: courseData.coverImage.length > 0 ? courseData.coverImage : null, // Optional cover image URL
+          status: courseData.status || 'DRAFT', // Default status for new courses
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
@@ -329,6 +329,7 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
     }
   }); // End of database transaction
 
+  // If course is draft, return course data and don't schedule lessons
   if (course.status === 'DRAFT') {
     console.log(`Course "${course.name}" created successfully in DRAFT status.`);
     return { course, lessons, quizzes, enrollments, learnersToNotify };

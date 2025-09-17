@@ -109,15 +109,15 @@ const createLearner = async (learnersData, adminId, groupId) => {
  * Fetches learner details from database by learner ID.
  * Used for profile viewing and learner management operations.
  * 
- * @param {string|number} userId - ID of the learner to retrieve
+ * @param {string|number} learnerId - ID of the learner to retrieve
  * @returns {Object} Learner object with profile information
  * @throws {Error} If learner not found or database error occurs
  */
-const getLearner = async (userId) => {
+const getLearner = async (learnerId) => {
     try {
-        // Find learner by ID (convert to number for safety)
+        // Find learner by ID
         const learner = await prisma.learner.findUnique({
-            where: { id: Number(userId) }
+            where: { id: learnerId }
         });
         
         // Check if learner exists

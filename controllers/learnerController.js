@@ -84,11 +84,11 @@ const registerLearner = async (request, response) => {
  */
 const getLearner = async (request, response) => {
     // Extract learner ID from URL parameters
-    const userId = Number(request.params.id);
+    const learnerId = Number(request.params.learnerId);
     
     try {
         // Call service layer to fetch learner data
-        const learner = await learnerService.getLearner(userId);
+        const learner = await learnerService.getLearner(learnerId);
         
         // Return learner data (should be 200, not 201)
         response.status(200).json(learner);
@@ -166,7 +166,7 @@ const getAllLearners = async (request, response) => {
  */
 const updateLearner = async (request, response) => {
     // Extract learner ID and update data
-    const userId = Number(request.params.id);
+    const learnerId = Number(request.params.learnerId);
     const requestBody = request.body;
 
     // If department is being updated, validate it
@@ -176,10 +176,10 @@ const updateLearner = async (request, response) => {
     
     try {
         // Call service layer to update learner
-        const updatedLearner = await learnerService.updateLearner(userId, requestBody);
+        const updatedLearner = await learnerService.updateLearner(learnerId, requestBody);
         
         // Return updated learner data
-        response.status(200).json(updatedLearner);
+        response.status(200).json({message: "Learner updated successfully", updatedLearner});
     } catch (error) {
         // Return error response if update fails
         response.status(500).json({error: error.message});

@@ -52,7 +52,7 @@ router.get('/:adminId', learnerController.getAllLearners);
  * Used for learner management and progress monitoring.
  */
 //router.get('/:id', authenticateJWT, authorizeAdmin, adminController.getLearner);
-router.get('/:learnerId', learnerController.getLearner);
+router.get('/details/:learnerId', learnerController.getLearner);
 
 
 /**

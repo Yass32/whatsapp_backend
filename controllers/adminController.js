@@ -236,14 +236,14 @@ const logout = (request, response) => {
  */
 const getUser = async (request, response) => {
     // Extract user ID from URL parameters
-    const userId = request.params.id;
+    const adminId = request.params.adminId;
     
     try {
         // Call service layer to fetch user data
-        const user = await adminService.getUser(userId);
+        const admin = await adminService.getUser(adminId);
         
         // Return user data (should be 200, not 201)
-        response.status(200).json(user);
+        response.status(200).json(admin);
     } catch (error) {
         // Return error response if user not found or fetch fails
         response.status(500).json({error: error.message});
@@ -266,10 +266,10 @@ const getUser = async (request, response) => {
 const getAllUsers = async (request, response) => {
     try {
         // Call service layer to fetch all admin users
-        const users = await adminService.getAllUsers();
+        const admins = await adminService.getAllUsers();
         
         // Return array of users
-        response.status(200).json(users);
+        response.status(200).json(admins);
     } catch (error) {
         // Return error response if fetch fails
         response.status(500).json({error: error.message});
@@ -293,7 +293,7 @@ const getAllUsers = async (request, response) => {
  */
 const updateUser = async (request, response) => {
     // Extract user ID and update data
-    const userId = request.params.id;
+    const adminId = Number(request.params.adminId);
     const requestBody = request.body;
 
     // If department is being updated, validate it
@@ -303,7 +303,7 @@ const updateUser = async (request, response) => {
     
     try {
         // Call service layer to update user
-        const updatedUser = await adminService.updateUser(userId, requestBody);
+        const updatedUser = await adminService.updateUser(adminId, requestBody);
         
         // Return updated user data
         response.status(200).json(updatedUser);
@@ -330,11 +330,11 @@ const updateUser = async (request, response) => {
  */
 const deleteUser = async (request, response) => {
     // Extract user ID from URL parameters
-    const userId = request.params.id;
+    const adminId = request.params.adminId;
     
     try {
         // Call service layer to delete user
-        const deletedUser = await adminService.deleteUser(userId);
+        const deletedUser = await adminService.deleteUser(adminId);
         
         // Return deleted user data for confirmation
         response.status(200).json(deletedUser);

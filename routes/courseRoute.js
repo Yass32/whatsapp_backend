@@ -16,7 +16,7 @@ const courseController = require('../controllers/courseController');
 const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
 
 /**
- * POST /courses/create-course
+ * POST /courses/
  * Create a new course with lessons, quizzes, and enrollments
  * 
  * Creates a complete course structure including:
@@ -29,8 +29,8 @@ const { authenticateJWT, authorizeAdmin } = require('../middleware/auth');
  * Authentication: Currently disabled for development
  * TODO: Enable authentication in production
  */
-// router.post('/create-course', authenticateJWT, authorizeAdmin, courseController.createCourse);
-router.post('/create-course', courseController.createCourse);
+// router.post('/', authenticateJWT, authorizeAdmin, courseController.createCourse);
+router.post('/', courseController.createCourse);
 
 /**
  * DELETE /courses/:id
