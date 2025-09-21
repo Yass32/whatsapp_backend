@@ -142,7 +142,16 @@ router.get('/status/:status', authenticateJWT, authorizeAdmin, (req, res) => {
  * 
  * Authentication: Required (Admin)
  */
-router.put('/:courseId', authenticateJWT, authorizeAdmin, courseController.updateCourse);
+//router.put('/:courseId', authenticateJWT, authorizeAdmin, courseController.updateCourse);
+router.put('/:courseId', courseController.updateCourse);
+
+/**
+ * @route   GET /api/courses/id/:courseId
+ * @desc    Get a single course by ID with its lessons and quizzes
+ * @access  Public (or add authentication middleware if needed)
+ */
+router.get('/id/:courseId', courseController.getCourseById);
+//router.get('/id/:courseId', authenticateJWT, authorizeAdmin, courseController.getCourseById);
 
 // Future route implementations:
 // GET /courses - List all published courses with pagination (public)

@@ -128,6 +128,33 @@ const getAdminCourses = async (request, response) => {
 };
 
 /**
+ * @desc    Get a single course by ID
+ * @route   GET /api/courses/id/:courseId
+ * @access  Public (or add authentication middleware if needed)
+ */
+const getCourseById = async (req, res) => {
+    try {
+        const { courseId } = req.params;
+
+        if (!courseId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Course ID is required'
+            });
+        }
+
+        const course = await courseService.getCourseById(courseId);
+
+        res.status(200).json(course);
+    } catch (error) {
+        console.error('Error in getCourseById:', error);
+        res.status(404).json({
+            message: error.message || 'Failed to fetch course'
+        });
+    }
+};
+
+/**
  * Publish a course (change status from DRAFT to PUBLISHED)
  * @param {Object} request - Express request object
  * @param {Object} response - Express response object
@@ -146,14 +173,10 @@ const publishCourse = async (request, response) => {
 
         const course = await courseService.publishCourse(parseInt(courseId), parseInt(adminId));
         
-        response.status(200).json({
-            success: true,
-            data: course
-        });
+        response.status(200).json(course);
     } catch (error) {
         console.error('Error in publishCourse:', error);
         response.status(500).json({
-            success: false,
             error: error.message || 'Failed to publish course'
         });
     }
@@ -178,14 +201,10 @@ const archiveCourse = async (request, response) => {
 
         const course = await courseService.archiveCourse(parseInt(courseId), parseInt(adminId));
         
-        response.status(200).json({
-            success: true,
-            data: course
-        });
+        response.status(200).json(course);
     } catch (error) {
         console.error('Error in archiveCourse:', error);
         response.status(500).json({
-            success: false,
             error: error.message || 'Failed to archive course'
         });
     }
@@ -198,41 +217,36 @@ const archiveCourse = async (request, response) => {
  */
 const updateCourse = async (request, response) => {
   try {
-    const { courseId } = request.params;
-    const adminId = request.user.id;
-    const { course: courseData, lessons: lessonsData } = request.body;
+    const { courseId, courseData, lessonsData , numbers, scheduleTime, startDate, frequency} = request.body;
 
-    if (!courseId || !adminId) {
+    if (!courseId) {
       return response.status(400).json({
-        success: false,
-        error: 'Course ID and admin ID are required'
+        error: 'Course ID is required'
       });
     }
 
     // Validate required course data
     if (!courseData || (courseData && Object.keys(courseData).length === 0)) {
       return response.status(400).json({
-        success: false,
         error: 'Course data is required'
       });
     }
 
     // Update the course
     const updatedCourse = await courseService.updateCourse(
-      parseInt(courseId),
-      parseInt(adminId),
+      Number(courseId),
       courseData,
-      lessonsData || []
+      lessonsData || [],
+      numbers,
+      scheduleTime,
+      startDate,
+      frequency
     );
 
-    response.status(200).json({
-      success: true,
-      data: updatedCourse
-    });
+    response.status(200).json(updatedCourse);
   } catch (error) {
     console.error('Error in updateCourse:', error);
     response.status(500).json({
-      success: false,
       error: error.message || 'Failed to update course'
     });
   }
@@ -257,7 +271,6 @@ const deleteCourse = async (request, response) => {
 
         if (!courseId) {
             return response.status(401).json({
-                success: false,
                 error: 'CourseId required'
             });
         }
@@ -266,7 +279,6 @@ const deleteCourse = async (request, response) => {
         await courseService.deleteCourse(courseId);
         
         response.status(200).json({
-            success: true,
             message: 'Course deleted successfully'
         });
     } catch (error) {
@@ -274,7 +286,6 @@ const deleteCourse = async (request, response) => {
         const statusCode = error.message.includes('not found') ? 404 : 
                          error.message.includes('authorized') ? 403 : 500;
         response.status(statusCode).json({
-            success: false,
             error: error.message || 'Failed to delete course'
         });
     }
@@ -288,5 +299,6 @@ module.exports = {
     deleteAllCourses, // Handler for deleting all courses and related data
     getAdminCourses, // Handler for getting all courses for the logged-in admin
     publishCourse, // Handler for publishing a draft course
-    archiveCourse // Handler for archiving a course
+    archiveCourse, // Handler for archiving a course
+    getCourseById // Handler for getting a single course by ID
 };

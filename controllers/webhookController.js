@@ -62,6 +62,7 @@ const handleWebhook = async (request, response) => {
     try {
         // Extract webhook entries from request body
         const {entry} = request.body;
+        console.log(entry);
 
         // Validate webhook payload structure
         if(!entry || entry.length === 0) {

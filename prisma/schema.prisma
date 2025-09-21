@@ -102,7 +102,7 @@ model Course {
   name           String
   description    String
   coverImage     String?
-  status         CourseStatus      @default(DRAFT)
+  status         CourseStatus      @default(PUBLISHED)
   publishedAt    DateTime?         // When the course was published
   admin          Admin             @relation(fields: [adminId], references: [id])
   adminId        Int

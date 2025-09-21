@@ -225,7 +225,7 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
  * @returns {Object} Result object with course, lessons, quizzes, enrollments, and scheduling info
  * @throws {Error} If validation fails or database transaction fails
  */
-const createCourse = async (numbers, courseData, lessonsData, scheduleTime, startDate, frequency) => {
+const createCourse = async (courseData, lessonsData, numbers, scheduleTime, startDate, frequency) => {
   // Validate required parameters before starting transaction
   if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
     throw new Error('At least one phone number is required'); // Must have recipients
@@ -235,6 +235,9 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
   }
   if (!lessonsData || !Array.isArray(lessonsData) || lessonsData.length === 0) {
     throw new Error('At least one lesson is required'); // Must have content to teach
+  }
+  if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(scheduleTime)) {
+    throw new Error('Invalid schedule time format. Use HH:MM (24-hour format)'); // Time format validation (HH:MM)
   }
 
 
@@ -247,7 +250,7 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
           name: courseData.name, // Course title
           description: courseData.description, // Course description
           coverImage: courseData.coverImage.length > 0 ? courseData.coverImage : null, // Optional cover image URL
-          status: courseData.status || 'DRAFT', // Default status for new courses
+          status: courseData.status || 'PUBLISHED', // Default status for new courses
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
@@ -332,7 +335,7 @@ const createCourse = async (numbers, courseData, lessonsData, scheduleTime, star
   // If course is draft, return course data and don't schedule lessons
   if (course.status === 'DRAFT') {
     console.log(`Course "${course.name}" created successfully in DRAFT status.`);
-    return { course, lessons, quizzes, enrollments, learnersToNotify };
+    return { course, lessons, quizzes, enrollments };
   }
 
   // Step 4: Queue course notifications for all enrolled learners
@@ -663,178 +666,256 @@ const getCoursesByStatus = async (adminId, status) => {
 };
 
 /**
- * Update an existing draft course with new data
+ * Updates a course and its related data
  * @param {number} courseId - ID of the course to update
- * @param {number} adminId - ID of the admin making the update
  * @param {Object} courseData - Updated course data
- * @param {Array} lessonsData - Updated lessons data
- * @returns {Promise<Object>} Updated course with lessons and quizzes
+ * @param {Array} [lessonsData=[]] - Updated lessons data
+ * @param {Array} [numbers] - Array of phone numbers
+ * @param {string} [scheduleTime] - Schedule time in HH:MM format
+ * @param {string} [startDate] - Start date in YYYY-MM-DD format
+ * @param {string} [frequency] - Frequency of lessons (daily, weekly, monthly)
+ * @returns {Promise<Object>} - Updated course with lessons and quizzes
+ * @throws {Error} If validation fails or update operation fails
  */
-const updateCourse = async (courseId, adminId, courseData, lessonsData = []) => {
-  // Validate input
-  if (!courseId || !adminId) {
-    throw new Error('Course ID and admin ID are required');
+const updateCourse = async (courseId, courseData, lessonsData = [], numbers, scheduleTime, startDate, frequency) => {
+  // Input validation
+  if (!courseId || isNaN(Number(courseId))) {
+      throw new Error('Valid course ID is required');
   }
 
-  // Start a database transaction
+  if (!courseData || typeof courseData !== 'object') {
+      throw new Error('Course data is required');
+  }
+
+  if (lessonsData && !Array.isArray(lessonsData)) {
+      throw new Error('Lessons data must be an array');
+  }
+
   return await prisma.$transaction(async (tx) => {
-    try {
-      // 1. Verify the course exists, is a draft, and belongs to the admin
-      const existingCourse = await tx.course.findUnique({
-        where: { id: courseId },
-        include: { lessons: { include: { quiz: true } } }
-      });
+      try {
+          // 1. Verify the course exists and is accessible
+          const existingCourse = await tx.course.findUnique({
+              where: { id: courseId },
+              include: { 
+                  lessons: { 
+                      include: { quiz: true } 
+                  } 
+              }
+          });
 
-      if (!existingCourse) {
-        throw new Error('Course not found');
-      }
+          if (!existingCourse) {
+              throw new Error('Course not found');
+          }
 
-      if (existingCourse.adminId !== adminId) {
-        throw new Error('You do not have permission to update this course');
-      }
+          // 2. Validate status transitions
+          if (courseData.status && existingCourse.status === 'PUBLISHED' && courseData.status !== 'PUBLISHED') {
+              throw new Error('Cannot change status from PUBLISHED to DRAFT or ARCHIVED');
+          }
 
-      if (existingCourse.status !== 'DRAFT') {
-        throw new Error('Only draft courses can be updated');
-      }
+          // 3. Get enrolled learners for notifications
+          const enrollments = await tx.enrollment.findMany({
+              where: { courseId },
+              include: { learner: true }
+          });
+          
+          const learnersToNotify = enrollments
+              .filter(e => e.learner)
+              .map(e => e.learner.number);
 
-      // 2. Update the course details
-      const updatedCourse = await tx.course.update({
-        where: { id: courseId },
-        data: {
-          name: courseData.name || existingCourse.name,
-          description: courseData.description || existingCourse.description,
-          coverImage: courseData.coverImage !== undefined ? courseData.coverImage : existingCourse.coverImage,
-          totalLessons: lessonsData.length || existingCourse.totalLessons,
-          totalQuizzes: lessonsData.length 
-            ? lessonsData.filter(lesson => lesson.quiz).length 
-            : existingCourse.totalQuizzes,
-          updatedAt: new Date()
-        },
-        include: {
-          lessons: true
-        }
-      });
-
-      // If no lessons data provided, return the updated course as is
-      if (!lessonsData || lessonsData.length === 0) {
-        return updatedCourse;
-      }
-
-      // 3. Handle lessons and quizzes updates
-      const existingLessons = existingCourse.lessons || [];
-      const updatedLessons = [];
-      const updatedQuizzes = [];
-
-      // Process each lesson in the provided lessons data
-      for (const lessonData of lessonsData) {
-        // Validate lesson data
-        if (!lessonData.title || !lessonData.content || lessonData.day === undefined) {
-          throw new Error('Each lesson must have a title, content, and day number');
-        }
-
-        // Check if this is an existing lesson (has an ID) or a new one
-        const existingLesson = existingLessons.find(l => l.id === lessonData.id);
-        
-        if (existingLesson) {
-          // Update existing lesson
-          const updatedLesson = await tx.lesson.update({
-            where: { id: existingLesson.id },
-            data: {
-              title: lessonData.title,
-              content: lessonData.content,
-              day: Number(lessonData.day),
+          // 4. Prepare course update data
+          const updateData = {
               updatedAt: new Date()
-            },
-            include: { quiz: true }
-          });
-          updatedLessons.push(updatedLesson);
+          };
 
-          // Handle quiz update if exists
-          if (lessonData.quiz) {
-            if (existingLesson.quiz) {
-              // Update existing quiz
-              const updatedQuiz = await tx.quiz.update({
-                where: { lessonId: existingLesson.id },
-                data: {
-                  question: lessonData.quiz.question,
-                  options: Array.isArray(lessonData.quiz.options) 
-                    ? lessonData.quiz.options 
-                    : JSON.parse(lessonData.quiz.options || '[]'),
-                  correctOption: lessonData.quiz.correctOption,
-                  updatedAt: new Date()
-                }
-              });
-              updatedQuizzes.push(updatedQuiz);
-            } else {
-              // Create new quiz
-              const newQuiz = await tx.quiz.create({
-                data: {
-                  question: lessonData.quiz.question,
-                  options: Array.isArray(lessonData.quiz.options) 
-                    ? lessonData.quiz.options 
-                    : JSON.parse(lessonData.quiz.options || '[]'),
-                  correctOption: lessonData.quiz.correctOption,
-                  lesson: { connect: { id: existingLesson.id } }
-                }
-              });
-              updatedQuizzes.push(newQuiz);
-            }
-          } else if (existingLesson.quiz) {
-            // Remove quiz if it existed but not in the update
-            await tx.quiz.delete({ where: { lessonId: existingLesson.id } });
+          // Only update fields that are provided and different from existing
+          if (courseData.name !== undefined && courseData.name !== existingCourse.name) {
+              updateData.name = courseData.name;
           }
-        } else {
-          // Create new lesson
-          const newLesson = await tx.lesson.create({
-            data: {
-              title: lessonData.title,
-              content: lessonData.content,
-              day: Number(lessonData.day),
-              course: { connect: { id: courseId } },
-              ...(lessonData.quiz && {
-                quiz: {
-                  create: {
-                    question: lessonData.quiz.question,
-                    options: Array.isArray(lessonData.quiz.options) 
-                      ? lessonData.quiz.options 
-                      : JSON.parse(lessonData.quiz.options || '[]'),
-                    correctOption: lessonData.quiz.correctOption
+          if (courseData.description !== undefined && courseData.description !== existingCourse.description) {
+              updateData.description = courseData.description;
+          }
+          if (courseData.coverImage !== undefined && courseData.coverImage !== existingCourse.coverImage) {
+              updateData.coverImage = courseData.coverImage;
+          }
+          if (courseData.status && courseData.status !== existingCourse.status) {
+              updateData.status = courseData.status;
+              if (courseData.status === 'PUBLISHED') {
+                  updateData.publishedAt = new Date();
+              }
+          }
+
+          // 5. Update course if there are changes
+          let updatedCourse = existingCourse;
+          if (Object.keys(updateData).length > 1) { // More than just updatedAt
+              updatedCourse = await tx.course.update({
+                  where: { id: courseId },
+                  data: updateData,
+                  include: { lessons: true }
+              });
+          }
+
+          // If no lessons data provided, return early
+          if (!lessonsData || lessonsData.length === 0) {
+              return updatedCourse;
+          }
+
+          // 6. Validate lesson days are unique
+          const lessonDays = new Set();
+          for (const lessonData of lessonsData) {
+              if (lessonDays.has(lessonData.day)) {
+                  throw new Error(`Duplicate day number found: ${lessonData.day}. Each lesson must have a unique day.`);
+              }
+              lessonDays.add(lessonData.day);
+          }
+
+          // 7. Process lessons
+          const existingLessons = existingCourse.lessons || [];
+          const updatedLessons = [];
+          const updatedQuizzes = [];
+
+          for (const lessonData of lessonsData) {
+              // Validate lesson data
+              if (!lessonData.title || !lessonData.content || lessonData.day === undefined) {
+                  throw new Error('Each lesson must have a title, content, and day number');
+              }
+
+              const existingLesson = existingLessons.find(lesson => lesson.id === lessonData.id);
+              
+              if (existingLesson) {
+                  // Update existing lesson
+                  const updatedLesson = await tx.lesson.update({
+                      where: { id: existingLesson.id },
+                      data: {
+                          title: lessonData.title,
+                          content: lessonData.content,
+                          day: Number(lessonData.day),
+                          updatedAt: new Date()
+                      },
+                      include: { quiz: true }
+                  });
+                  updatedLessons.push(updatedLesson);
+
+                  // Handle quiz update
+                  if (lessonData.quiz) {
+                      let quizData;
+                      try {
+                          quizData = {
+                              question: lessonData.quiz.question,
+                              options: Array.isArray(lessonData.quiz.options) 
+                                  ? lessonData.quiz.options 
+                                  : JSON.parse(lessonData.quiz.options || '[]'),
+                              correctOption: lessonData.quiz.correctOption
+                          };
+                      } catch (e) {
+                          throw new Error('Invalid quiz options format. Must be a valid JSON array.');
+                      }
+
+                      if (existingLesson.quiz) {
+                          // Update existing quiz
+                          const updatedQuiz = await tx.quiz.update({
+                              where: { lessonId: existingLesson.id },
+                              data: quizData
+                          });
+                          updatedQuizzes.push(updatedQuiz);
+                      } else {
+                          // Create new quiz
+                          const newQuiz = await tx.quiz.create({
+                              data: {
+                                  ...quizData,
+                                  lesson: { connect: { id: existingLesson.id } }
+                              }
+                          });
+                          updatedQuizzes.push(newQuiz);
+                      }
+                  } else if (existingLesson.quiz) {
+                      // Remove existing quiz if not in update
+                      await tx.quiz.delete({ where: { lessonId: existingLesson.id } });
                   }
-                }
-              })
-            },
-            include: { quiz: true }
-          });
-          updatedLessons.push(newLesson);
-          if (newLesson.quiz) {
-            updatedQuizzes.push(newLesson.quiz);
+              } else {
+                  // Create new lesson
+                  const newLesson = await tx.lesson.create({
+                      data: {
+                          title: lessonData.title,
+                          content: lessonData.content,
+                          day: Number(lessonData.day),
+                          course: { connect: { id: courseId } },
+                          ...(lessonData.quiz && {
+                              quiz: {
+                                  create: {
+                                      question: lessonData.quiz.question,
+                                      options: Array.isArray(lessonData.quiz.options) 
+                                          ? lessonData.quiz.options 
+                                          : JSON.parse(lessonData.quiz.options || '[]'),
+                                      correctOption: lessonData.quiz.correctOption
+                                  }
+                              }
+                          })
+                      },
+                      include: { quiz: true }
+                  });
+                  updatedLessons.push(newLesson);
+                  if (newLesson.quiz) {
+                      updatedQuizzes.push(newLesson.quiz);
+                  }
+              }
           }
-        }
-      }
 
-      // 4. Delete lessons that weren't included in the update
-      const updatedLessonIds = updatedLessons.map(l => l.id);
-      const lessonsToDelete = existingLessons.filter(l => !updatedLessonIds.includes(l.id));
-      
-      if (lessonsToDelete.length > 0) {
-        await tx.lesson.deleteMany({
-          where: {
-            id: { in: lessonsToDelete.map(l => l.id) }
+          // 8. Clean up deleted lessons and their related data
+          const updatedLessonIds = updatedLessons.map(lesson => lesson.id);
+          const lessonsToDelete = existingLessons.filter(lesson => !updatedLessonIds.includes(lesson.id));
+          
+          if (lessonsToDelete.length > 0) {
+              const lessonIdsToDelete = lessonsToDelete.map(lesson => lesson.id);
+              
+              // Delete related records in correct order
+              await tx.quiz.deleteMany({
+                  where: { lessonId: { in: lessonIdsToDelete } }
+              });
+
+              await tx.lessonProgress.deleteMany({
+                  where: { lessonId: { in: lessonIdsToDelete } }
+              });
+
+              await tx.lesson.deleteMany({
+                  where: { id: { in: lessonIdsToDelete } }
+              });
           }
-        });
+
+          // 9. Prepare result
+          const result = {
+              ...updatedCourse,
+              lessons: updatedLessons,
+              quizzes: updatedQuizzes
+          };
+
+          // 10. Schedule notifications if published (outside transaction)
+          if (updatedCourse.status === 'PUBLISHED' && learnersToNotify.length > 0) {
+              // This will run after the transaction commits
+              process.nextTick(async () => {
+                  try {
+                      await Promise.all(learnersToNotify.map(to => 
+                          addJobToQueue(notificationQueue, 'sendNotification', { 
+                              to, 
+                              courseData: updatedCourse, 
+                              course: updatedCourse 
+                          })
+                      ));
+                      await scheduleLessons(updatedCourse.id, numbers, scheduleTime, startDate, frequency);
+                  } catch (error) {
+                      console.error('Error scheduling notifications:', error);
+                  }
+              });
+          }
+
+          return result;
+
+      } catch (error) {
+          console.error('Update course transaction error:', error);
+          if (error.code === 'P2025') {
+              throw new Error('Course not found or you do not have permission to update it');
+          }
+          throw new Error(`Failed to update course: ${error.message}`);
       }
-
-      // 5. Return the complete updated course with lessons and quizzes
-      return {
-        ...updatedCourse,
-        lessons: updatedLessons,
-        quizzes: updatedQuizzes
-      };
-
-    } catch (error) {
-      console.error('Error updating course:', error);
-      throw new Error(`Failed to update course: ${error.message}`);
-    }
   });
 };
 
@@ -910,6 +991,46 @@ const deleteCourse = async (courseId) => {
 };
 
 
+/**
+ * Get a single course by ID with its lessons and quizzes
+ * @param {number} courseId - The ID of the course to retrieve
+ * @returns {Promise<Object>} The course with its lessons and quizzes
+ * @throws {Error} If course is not found or other error occurs
+ */
+const getCourseById = async (courseId) => {
+  try {
+      const course = await prisma.course.findUnique({
+          where: { id: Number(courseId) },
+          include: {
+              lessons: {
+                  include: {
+                      quiz: true
+                  },
+                  orderBy: {
+                      day: 'asc' // Order lessons by day
+                  }
+              },
+              admin: {
+                  select: {
+                      id: true,
+                      name: true,
+                      email: true
+                  }
+              }
+          }
+      });
+
+      if (!course) {
+          throw new Error('Course not found');
+      }
+
+      return course;
+  } catch (error) {
+      console.error('Error fetching course:', error);
+      throw new Error(error.message || 'Failed to fetch course');
+  }
+};
+
 
 // Export all course service functions for use in other modules
 module.exports = {
@@ -922,47 +1043,6 @@ module.exports = {
   publishCourse, // Function to publish a draft course
   archiveCourse, // Function to archive a course
   deleteAllCourses, // Function to delete all course data (for testing/cleanup)
-  scheduleLessons // Function to schedule automated lesson delivery via cron jobs
+  scheduleLessons, // Function to schedule automated lesson delivery via cron jobs
+  getCourseById // Function to get a single course by ID with its lessons and quizzes
 }
-/*
-{
-  "courseData": {
-    "name": "Türk Mutfağına Giriş",
-    "description": "Türk yemek kültürünün temellerini ve geleneksel tarifleri öğrenin",
-    "coverImage": "https://ofy.org/wp-content/uploads/2015/11/OFY-learning-to-learn-cover-photo.jpg",
-    "adminId": 1
-  },
-  "lessonsData": [
-    {
-      "title": "Türk Mutfağına Genel Bakış",
-      "content": "Türk mutfağı, Osmanlı İmparatorluğu'nun mirasını taşıyan, zengin çeşitliliğe sahip bir dünya mutfağıdır. Anadolu, Orta Asya, Orta Doğu ve Balkan mutfaklarının harmanlanmasıyla oluşmuştur.",
-      "day": 1,
-      "quiz": {
-        "question": "Türk mutfağı hangi mutfakların harmanlanmasıyla oluşmuştur?",
-        "options": ["A. Anadolu ve Orta Asya", "B. Orta Doğu ve Balkan", "C. İtalyan ve Fransız", "D. Bilmiyorum"],
-        "correctOption": "A. Anadolu ve Orta Asya"
-      }
-    },
-    {
-      "title": "Türk Mutfağının Temelleri",
-      "content": "Türk mutfağı, zengin bir tarih ve çeşitliliğe sahiptir. Temel pişirme yöntemleri arasında ızgara, tencere yemekleri ve zeytinyağlılar bulunur. Geleneksel tarifler genellikle taze sebzeler, etler ve bakliyatlar kullanır.",
-      "day": 2,
-      "quiz": {
-        "question": "Türk mutfağının temel pişirme yöntemlerinden biri değildir?",
-        "options": ["A. Izgara", "B. Tencere yemekleri", "C. Zeytinyağlılar", "D. Sushi yapımı"],
-        "correctOption": "D. Sushi yapımı"
-      }
-    },
-    {
-      "title": "Bölgesel Türk Yemekleri",
-      "content": "Türkiye'nin yedi bölgesi kendine has yemeklere sahiptir. Güneydoğu'da kebap ve lahmacun, Karadeniz'de hamsi ve mıhlama, Ege'de zeytinyağlılar ve ot yemekleri öne çıkar.",
-      "day": 3
-    }
-  ],
-  "numbers": [
-    "905359840140",
-    "905548411974", 
-    "905051190856"
-  ]
-}
-*/
