@@ -31,14 +31,14 @@ const courseService = require('../services/courseService');
  */
 const createCourse = async (request, response) => {
     // Extract course creation parameters from request body
-    const {numbers, courseData, lessonsData, scheduleTime, startDate, frequency} = request.body;
+    const { courseData, lessonsData, numbers, scheduleTime, startDate, frequency} = request.body;
     
     try {
         // Call service layer to create course with all components
         const createdCourse = await courseService.createCourse(
-            numbers, // Learner phone numbers for enrollment
             courseData, // Course metadata
             lessonsData, // Lesson content and structure
+            numbers, // Learner phone numbers for enrollment
             scheduleTime, // Delivery time
             startDate, // Course start date
             frequency // Delivery frequency

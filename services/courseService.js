@@ -225,12 +225,17 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
  * @returns {Object} Result object with course, lessons, quizzes, enrollments, and scheduling info
  * @throws {Error} If validation fails or database transaction fails
  */
-const createCourse = async (courseData, lessonsData, numbers, scheduleTime, startDate, frequency) => {
+const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:00', startDate=new Date().toISOString().split('T')[0], frequency='daily') => {
   // Validate required parameters before starting transaction
   if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
     throw new Error('At least one phone number is required'); // Must have recipients
   }
   if (!courseData || !courseData.name || !courseData.description) {
+    console.log('Validation failed!')
+    console.log('!courseData:', !courseData)
+    console.log('!courseData.name:', !courseData?.name)
+    console.log('!courseData.description:', !courseData?.description)
+    console.log('courseData keys:', courseData ? Object.keys(courseData) : 'null/undefined')
     throw new Error('Course name and description are required'); // Must have basic course info
   }
   if (!lessonsData || !Array.isArray(lessonsData) || lessonsData.length === 0) {
@@ -249,7 +254,7 @@ const createCourse = async (courseData, lessonsData, numbers, scheduleTime, star
         data: {
           name: courseData.name, // Course title
           description: courseData.description, // Course description
-          coverImage: courseData.coverImage.length > 0 ? courseData.coverImage : null, // Optional cover image URL
+          coverImage: courseData.coverImage || null, // Optional cover image URL
           status: courseData.status || 'PUBLISHED', // Default status for new courses
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
@@ -383,17 +388,35 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
   });
   if (!course) return { error: "Course not found" }; // Return error if course doesn't exist
 
+  // Find the lesson with quiz count for progress calculation
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: {
+      quiz: true // Include the quiz if it exists
+    }
+  });
+  if (!lesson) return { error: "Lesson not found" }; // Return error if lesson doesn't exist
+
   // Get existing progress record or create new one
-  let progress = await prisma.courseProgress.findUnique({
+  let courseProgress = await prisma.courseProgress.findUnique({
     where: { learnerId_courseId: { learnerId: learner.id, courseId } } // Composite key lookup
   });
 
+  // Get existing lesson progress record or create new one
+  let lessonProgress = await prisma.lessonProgress.findUnique({
+    where: { learnerId_lessonId: { learnerId: learner.id, lessonId } } // Composite key lookup
+  });
+
   // Create initial progress record if none exists
-  if (!progress) {
-    progress = await prisma.courseProgress.create({
+  if (!courseProgress) {
+    courseProgress = await prisma.courseProgress.create({
       data: { learnerId: learner.id, courseId } // Create with default values
     });
+    lessonProgress = await prisma.lessonProgress.create({
+      data: { learnerId: learner.id, lessonId } // Create with default values
+    });
   }
+
 
   // Handle quiz answer submission
   if (quizReply && lessonId) {
@@ -405,13 +428,27 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
     if (quiz) {
       // Check if the answer is correct
       if (quizReply === quiz.correctOption || quizReply === quiz.correctOption.substring(0, 22) + '..') {
+
+        // Calculate total quizzes in the course (count lessons with quizzes)
+        //const totalQuizzesInCourse = course.lessons.filter(lesson => lesson.quiz).length;
+
         // Update quiz score by adding percentage points
-        progress = await prisma.courseProgress.update({
-          where: { id: progress.id },
+        courseProgress = await prisma.courseProgress.update({
+          where: { id: courseProgress.id },
           data: {
             quizScore: Math.round(
-              ((progress.quizScore || 0) + (100 / course.totalQuizzes)) // Add points based on total quizzes
+              ((courseProgress.quizScore || 0) + (100 / course.totalQuizzes)) // Add points based on total quizzes in course
             )
+          }
+        });
+
+        // Update lesson progress
+        lessonProgress = await prisma.lessonProgress.update({
+          where: { id: lessonProgress.id },
+          data: {
+            quizScore: 100, // Lesson quiz score is 100% since each lesson has at most 1 quiz
+            isCompleted: true, // Mark lesson as completed
+            completedAt: new Date() // Set completion timestamp
           }
         });
       } else {
@@ -423,24 +460,33 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
   } 
   // Handle lesson completion (no quiz reply)
   else if (!quizReply) {
-    // Update lesson completion progress
-    progress = await prisma.courseProgress.update({
-      where: { id: progress.id },
+    // Update course completion progress
+    courseProgress = await prisma.courseProgress.update({
+      where: { id: courseProgress.id },
       data: {
         completedLessons: { increment: 1 }, // Increment completed lesson count
-        progressPercent: Math.round(
-          ((progress.completedLessons + 1) / course.totalLessons) * 100 // Calculate percentage
+        progressPercent: Math.round(  
+          ((courseProgress.completedLessons + 1) / course.totalLessons) * 100 // Calculate percentage
         ),
-        isCompleted: progress.completedLessons + 1 >= course.totalLessons, // Mark complete if all lessons done
-        completedAt: progress.completedLessons + 1 >= course.totalLessons 
+        isCompleted: courseProgress.completedLessons + 1 >= course.totalLessons, // Mark complete if all lessons done
+        completedAt: courseProgress.completedLessons + 1 >= course.totalLessons 
           ? new Date() // Set completion timestamp if course finished
           : null
+      }
+    });
+
+    // Update lesson completion progress
+    lessonProgress = await prisma.lessonProgress.update({
+      where: { id: lessonProgress.id },
+      data: {
+        isCompleted: true, // Mark lesson as completed
+        completedAt: new Date() // Set completion timestamp
       }
     });
   }
 
   // Return updated progress and correct answer (if applicable)
-  return { progress, correct };
+  return { courseProgress, lessonProgress, correct };
 };
 
 /**
@@ -936,9 +982,9 @@ const updateCourse = async (courseId, courseData, lessonsData = [], numbers, sch
  * @throws {Error} If course not found or admin is not authorized
  */
 const deleteCourse = async (courseId) => {
-    return await prisma.$transaction(async (prisma) => {
+    return await prisma.$transaction(async (tx) => {
         // First verify the course exists
-        const course = await prisma.course.findUnique({
+        const course = await tx.course.findUnique({
             where: { id: courseId },
             select: { id: true }
         });
@@ -948,22 +994,22 @@ const deleteCourse = async (courseId) => {
         }
 
         // Delete GroupCourse associations first
-        await prisma.groupCourse.deleteMany({
+        await tx.groupCourse.deleteMany({
             where: { courseId }
         });
 
         // Delete enrollments
-        await prisma.enrollment.deleteMany({
+        await tx.enrollment.deleteMany({
             where: { courseId }
         });
 
         // Delete course progress records
-        await prisma.courseProgress.deleteMany({
+        await tx.courseProgress.deleteMany({
             where: { courseId }
         });
 
         // Get lesson IDs to delete their quizzes and progress
-        const lessons = await prisma.lesson.findMany({
+        const lessons = await tx.lesson.findMany({
             where: { courseId },
             select: { id: true }
         });
@@ -971,18 +1017,23 @@ const deleteCourse = async (courseId) => {
 
         // Delete quizzes for these lessons
         if (lessonIds.length > 0) {
-            await prisma.quiz.deleteMany({
+            await tx.quiz.deleteMany({
+                where: { lessonId: { in: lessonIds } }
+            });
+
+            // Delete lesson progress records
+            await tx.lessonProgress.deleteMany({
                 where: { lessonId: { in: lessonIds } }
             });
         }
 
         // Delete lessons
-        await prisma.lesson.deleteMany({
+        await tx.lesson.deleteMany({
             where: { courseId }
         });
 
         // Finally, delete the course
-        const deletedCourse = await prisma.course.delete({
+        const deletedCourse = await tx.course.delete({
             where: { id: courseId }
         });
 

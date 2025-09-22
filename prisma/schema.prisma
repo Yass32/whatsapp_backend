@@ -35,7 +35,7 @@ model Group {
   name        String
   admin       Admin                  @relation(fields: [adminId], references: [id])
   adminId     Int
-  members     GroupMember[]          // Learners in this group
+  members     GroupMember[]          // Memberships in this group
   courses     GroupCourse[]          // Courses assigned to this group
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
@@ -80,7 +80,8 @@ model Learner {
   company         String 
   enrollments     Enrollment[]       // Course enrollments
   courseProgress  CourseProgress[]   // Overall course progress
-  groups          GroupMember[]      // Groups this learner belongs to
+  lessonProgress  LessonProgress[]   // Individual lesson progress
+  groups          GroupMember[]            // Groups this learner belongs to
   admin           Admin?             @relation(fields: [adminId], references: [id])
   adminId         Int?               // The admin who created/invited this learner
   createdAt       DateTime           @default(now())
@@ -135,6 +136,7 @@ model Lesson {
   courseId    Int
   quiz        Quiz?                
   day         Int                  // Day in course (e.g., 1, 2, 3)
+  lessonProgress LessonProgress[] // Track learner progress for this lesson
   messageContexts MessageContext[] // Messages related to this lesson
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -165,7 +167,29 @@ model CourseProgress {
   isCompleted     Boolean          @default(false) // True when all lessons completed
   completedAt     DateTime?        // When course was fully completed
 
-  @@unique([learnerId, courseId]) // One progress record per learner per course
+  @@unique([learnerId, courseId]) // Prevent duplicate progress records
+  @@index([learnerId])
+  @@index([courseId])
+}
+
+// Track individual lesson progress for each learner
+model LessonProgress {
+  id              Int              @id @default(autoincrement())
+  learnerId       Int
+  lessonId        Int
+  learner         Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson          Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  isCompleted     Boolean          @default(false) // Whether the lesson content was completed
+  completedAt     DateTime?        // When lesson was completed
+  quizScore       Float?           // Score for lesson quiz (0-100)
+  //attempts        Int              @default(0) // Number of quiz attempts
+  //timeSpent       Int?             // Time spent on lesson in minutes
+  startedAt       DateTime         @default(now())
+  lastActivityAt  DateTime         @updatedAt
+
+  @@unique([learnerId, lessonId]) // One progress record per learner per lesson
+  @@index([learnerId])
+  @@index([lessonId])
 }
 
 
@@ -193,6 +217,9 @@ model MessageContext {
   quiz         Quiz?                @relation(fields: [quizId], references: [id], onDelete: Cascade)
   createdAt    DateTime             @default(now())
   expiresAt    DateTime             // For automatic cleanup
+
+  // Validation: If lessonId is provided, it must belong to the course
+  // If quizId is provided, it must belong to the lesson
   @@index([phoneNumber])
   @@index([courseId])
 }

@@ -104,32 +104,133 @@ const createLearner = async (learnersData, adminId, groupId) => {
 
 
 /**
- * Retrieve a single learner by ID
- * 
- * Fetches learner details from database by learner ID.
- * Used for profile viewing and learner management operations.
- * 
+ * Retrieve a single learner by ID with comprehensive information
+ *
+ * Fetches learner details from database by learner ID including:
+ * - Basic learner information
+ * - Enrolled courses with lesson details
+ * - Group memberships
+ * - Course progress tracking
+ * - Individual lesson progress
+ * Used for detailed learner profile viewing and analytics.
+ *
  * @param {string|number} learnerId - ID of the learner to retrieve
- * @returns {Object} Learner object with profile information
+ * @returns {Object} Learner object with complete information including courses, lessons, groups, and progress
  * @throws {Error} If learner not found or database error occurs
  */
 const getLearner = async (learnerId) => {
     try {
-        // Find learner by ID
+        // Find learner by ID with all related information
         const learner = await prisma.learner.findUnique({
-            where: { id: learnerId }
+            where: { id: Number(learnerId) },
+            include: {
+                // Include enrolled courses with their lessons and quizzes
+                enrollments: {
+                    include: {
+                        course: {
+                            include: {
+                                lessons: {
+                                    include: {
+                                        quiz: true // Include quizzes for each lesson
+                                    },
+                                    orderBy: {
+                                        day: 'asc' // Order lessons by day
+                                    }
+                                },
+                            }
+                        }
+                    }
+                },
+                // Include course progress for each enrolled course
+                courseProgress: {
+                    include: {
+                        course: {
+                            select: {
+                                id: true,
+                                name: true,
+                                totalLessons: true,
+                                totalQuizzes: true
+                            }
+                        }
+                    }
+                },
+                // Include individual lesson progress
+                lessonProgress: {
+                    include: {
+                        lesson: {
+                            include: {
+                                course: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                },
+                                quiz: true
+                            }
+                        }
+                    }
+                },
+                // Include group memberships
+                groups: {
+                    include: {
+                        group: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        }
+                    }
+                }
+            }
         });
-        
+
         // Check if learner exists
         if (!learner) {
-            throw new Error('learner not found');
+            throw new Error('Learner not found');
         }
-        
-        return learner; // Return learner object
+
+        // Calculate additional analytics data
+        const analytics = {
+            totalEnrolledCourses: learner.enrollments.length,
+            totalCompletedCourses: learner.courseProgress.filter(cp => cp.isCompleted).length,
+            totalLessonsCompleted: learner.lessonProgress.filter(lp => lp.isCompleted).length,
+            totalGroupsJoined: learner.groups.length,
+            averageCourseProgress: learner.courseProgress.length > 0
+                ? Math.round(learner.courseProgress.reduce((sum, cp) => sum + (cp.progressPercent || 0), 0) / learner.courseProgress.length)
+                : 0,
+            averageQuizScore: learner.courseProgress.length > 0
+                ? Math.round(learner.courseProgress.reduce((sum, cp) => sum + (cp.quizScore || 0), 0) / learner.courseProgress.length)
+                : 0
+        };
+
+        // Extract only group details from GroupMember objects
+        const groupsData = learner.groups.map(membership => membership.group);
+
+        // Create modified learner object with clean groups data
+        const { groups, courseProgress, lessonProgress, enrollments } = learner;
+
+        const learnerData = { name: learner.name,
+            surname: learner.surname,
+            email: learner.email,
+            number: learner.number,
+            active: learner.active,
+            createdAt: learner.createdAt,
+        };
+            
+
+        return {
+            groups: groupsData, // Clean group objects without GroupMember wrapper
+            courseProgress,
+            lessonProgress,
+            enrollments,
+            analytics,
+            learnerData
+        };
     } catch (error) {
-        throw new Error('Failed to fetch learner'); // Generic error message
+        console.error('Error in getLearner:', error);
+        throw new Error(error.message || 'Failed to fetch learner details');
     }
-}
+};
 
 /**
  * Get all learners for a specific admin
@@ -190,6 +291,7 @@ const updateLearner = async (userId, requestBody) => {
     try {
         // Extract allowed fields from request body
         const {
+            active,
             name,
             surname,
             email,
@@ -200,6 +302,7 @@ const updateLearner = async (userId, requestBody) => {
 
         // Build update data object with only provided fields
         const updatedData = {};
+        if (active !== undefined) updatedData.active = active;
         if (name !== undefined) updatedData.name = name;
         if (surname !== undefined) updatedData.surname = surname;
         if (email !== undefined) updatedData.email = email;
