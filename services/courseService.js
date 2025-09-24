@@ -412,6 +412,10 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
     courseProgress = await prisma.courseProgress.create({
       data: { learnerId: learner.id, courseId } // Create with default values
     });
+  }
+
+  // Create lesson progress if it doesn't exist
+  if (!lessonProgress) {
     lessonProgress = await prisma.lessonProgress.create({
       data: { learnerId: learner.id, lessonId } // Create with default values
     });
@@ -486,6 +490,7 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
   }
 
   // Return updated progress and correct answer (if applicable)
+  console.log(courseProgress, lessonProgress, correct)
   return { courseProgress, lessonProgress, correct };
 };
 
@@ -510,6 +515,7 @@ const deleteAllCourses = async () => {
     await prisma.$transaction([
       prisma.messageContext.deleteMany({}), // Delete message contexts first (references courses/lessons/quizzes)
       prisma.courseProgress.deleteMany({}), // Delete progress records (references courses)
+      prisma.lessonProgress.deleteMany({}), // Delete lesson progress records (references lessons)
       prisma.enrollment.deleteMany({}), // Delete enrollments (references courses and learners)
       prisma.quiz.deleteMany({}), // Delete quizzes (references lessons)
       prisma.lesson.deleteMany({}), // Delete lessons (references courses)

@@ -341,32 +341,79 @@ const updateLearner = async (userId, requestBody) => {
 
 /**
  * Delete a single learner from the system
- * 
- * Permanently removes learner from database. Note that this may fail if
- * the learner has related records (enrollments, progress) due to foreign
- * key constraints. Use deleteAllLearners for cascading deletion.
- * 
- * @param {string|number} userId - ID of learner to delete
+ *
+ * Permanently removes learner from database along with all related data:
+ * 1. Group memberships (GroupMember records)
+ * 2. Course progress records
+ * 3. Lesson progress records
+ * 4. Course enrollments
+ * 5. Learner record
+ *
+ * Uses transaction to ensure atomicity and proper cascading deletion.
+ *
+ * @param {string|number} learnerId - ID of learner to delete
  * @returns {Object} Deleted learner object
  * @throws {Error} If learner not found or deletion fails
  */
-const deleteLearner = async (userId) => {
-    try {
-        // Delete learner from database
-        const learner = await prisma.learner.delete({
-            where: { id : Number(userId)} // Convert to number for safety
-        });
-        
-        // Check if learner was found and deleted
-        if (!learner) {
-            throw new Error('learner not found');
-        }
-        
-        return learner; // Return deleted learner object
-    } catch (error) {
-        throw new Error('Failed to delete learner'); // Generic error message
+const deleteLearner = async (learnerId) => {
+    // Input validation
+    if (!learnerId || isNaN(Number(learnerId))) {
+        throw new Error('Valid learner ID is required');
     }
-} 
+
+    return await prisma.$transaction(async (tx) => {
+        try {
+            // First verify the learner exists
+            const learner = await tx.learner.findUnique({
+                where: { id: Number(learnerId) },
+                select: { id: true, name: true, surname: true }
+            });
+
+            if (!learner) {
+                throw new Error('Learner not found');
+            }
+
+            console.log(`Deleting learner: ${learner.name} ${learner.surname} (ID: ${learner.id})`);
+
+            // Delete all related data in correct order to respect foreign key constraints
+            await tx.groupMember.deleteMany({
+                where: { learnerId: Number(learnerId) }
+            });
+
+            await tx.courseProgress.deleteMany({
+                where: { learnerId: Number(learnerId) }
+            });
+
+            await tx.lessonProgress.deleteMany({
+                where: { learnerId: Number(learnerId) }
+            });
+
+            await tx.enrollment.deleteMany({
+                where: { learnerId: Number(learnerId) }
+            });
+
+            // Finally, delete the learner
+            const deletedLearner = await tx.learner.delete({
+                where: { id: Number(learnerId) }
+            });
+
+            console.log(`Successfully deleted learner: ${deletedLearner.name} ${deletedLearner.surname}`);
+            return {
+                success: true,
+                message: 'Learner deleted successfully',
+                data: deletedLearner
+            };
+
+        } catch (error) {
+            console.error('Delete learner error:', error);
+            // Provide more specific error messages
+            if (error.code === 'P2025') {
+                throw new Error('Learner not found or already deleted');
+            }
+            throw new Error(`Failed to delete learner: ${error.message}`);
+        }
+    });
+}; 
 
 /**
  * Delete all learners and their related data from the system

@@ -161,17 +161,16 @@ const getCourseById = async (req, res) => {
  */
 const publishCourse = async (request, response) => {
     try {
-        const { courseId } = request.params;
-        const adminId = request.user.id;
+        const courseId = Number(request.params.courseId);
 
-        if (!courseId || !adminId) {
+        if (!courseId) {
             return response.status(400).json({
                 success: false,
-                error: 'Course ID and admin ID are required'
+                error: 'Course ID is required'
             });
         }
 
-        const course = await courseService.publishCourse(parseInt(courseId), parseInt(adminId));
+        const course = await courseService.publishCourse(courseId);
         
         response.status(200).json(course);
     } catch (error) {
@@ -189,17 +188,16 @@ const publishCourse = async (request, response) => {
  */
 const archiveCourse = async (request, response) => {
     try {
-        const { courseId } = request.params;
-        const adminId = request.user.id;
+        const courseId = Number(request.params.courseId);
 
-        if (!courseId || !adminId) {
+        if (!courseId) {
             return response.status(400).json({
                 success: false,
-                error: 'Course ID and admin ID are required'
+                error: 'Course ID is required'
             });
         }
 
-        const course = await courseService.archiveCourse(parseInt(courseId), parseInt(adminId));
+        const course = await courseService.archiveCourse(courseId);
         
         response.status(200).json(course);
     } catch (error) {

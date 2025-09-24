@@ -394,21 +394,58 @@ const updateGroup = async (groupId, updateData) => {
 
 /**
  * Delete a group and all related data
- * 
+ *
  * @param {number} groupId Group ID
  * @returns {Promise<Object>} Deleted group object
  */
 const deleteGroup = async (groupId) => {
-    try {
-        const group = await prisma.group.delete({
-            where: { id: groupId }
-        });
-
-        return group;
-    } catch (error) {
-        console.error('Delete group error:', error);
-        throw new Error('Failed to delete group');
+    // Input validation
+    if (!groupId || isNaN(Number(groupId))) {
+        throw new Error('Valid group ID is required');
     }
+
+    return await prisma.$transaction(async (tx) => {
+        try {
+            // First verify the group exists
+            const group = await tx.group.findUnique({
+                where: { id: groupId },
+                select: { id: true, name: true }
+            });
+
+            if (!group) {
+                throw new Error('Group not found');
+            }
+
+            // Delete all related data in correct order
+            await tx.groupCourse.deleteMany({
+                where: { groupId }
+            });
+
+            await tx.groupMember.deleteMany({
+                where: { groupId }
+            });
+
+            // Finally, delete the group
+            const deletedGroup = await tx.group.delete({
+                where: { id: groupId }
+            });
+
+            console.log(`Successfully deleted group: ${deletedGroup.name} (ID: ${deletedGroup.id})`);
+            return {
+                success: true,
+                message: 'Group deleted successfully',
+                data: deletedGroup
+            };
+
+        } catch (error) {
+            console.error('Delete group error:', error);
+            // Provide more specific error messages
+            if (error.code === 'P2025') {
+                throw new Error('Group not found or already deleted');
+            }
+            throw new Error(`Failed to delete group: ${error.message}`);
+        }
+    });
 };
 
 module.exports = {
