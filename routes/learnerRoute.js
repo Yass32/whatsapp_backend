@@ -52,7 +52,7 @@ router.get('/:adminId', learnerController.getAllLearners);
  * Used for learner management and progress monitoring.
  */
 //router.get('/:id', authenticateJWT, authorizeAdmin, adminController.getLearner);
-router.get('/details/:learnerId', learnerController.getLearner);
+router.get('/:learnerId/details', learnerController.getLearner);
 
 
 /**
@@ -86,6 +86,21 @@ router.delete('/:learnerId', learnerController.deleteLearner);
 */
 //router.delete('/all', authenticateJWT, authorizeAdmin, adminController.deleteAllLearners);
 router.delete('/all', learnerController.deleteAllLearners);
+
+/**
+ * GET /learners/:adminId/insights
+ * Get comprehensive learner insights and analytics
+ *
+ * Retrieves detailed analytics for all learners including:
+ * - Course progress statistics
+ * - Quiz performance metrics
+ * - Message interaction analytics
+ * - Recent activity tracking
+ * - Overall learner performance summary
+ *
+ * Authentication: Required (Admin)
+ */
+router.get('/:adminId/insights', learnerController.getLearnerInsights);
 
 
 module.exports = router;

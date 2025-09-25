@@ -231,11 +231,6 @@ const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:0
     throw new Error('At least one phone number is required'); // Must have recipients
   }
   if (!courseData || !courseData.name || !courseData.description) {
-    console.log('Validation failed!')
-    console.log('!courseData:', !courseData)
-    console.log('!courseData.name:', !courseData?.name)
-    console.log('!courseData.description:', !courseData?.description)
-    console.log('courseData keys:', courseData ? Object.keys(courseData) : 'null/undefined')
     throw new Error('Course name and description are required'); // Must have basic course info
   }
   if (!lessonsData || !Array.isArray(lessonsData) || lessonsData.length === 0) {
@@ -680,6 +675,131 @@ const archiveCourse = async (courseId, adminId) => {
 };
 
 /**
+ * Unarchive a course by creating a new copy with specified status
+ *
+ * This function creates a new course by copying all data from an archived course:
+ * 1. Finds the original course by ID
+ * 2. Copies course metadata (name, description, coverImage, totalLessons, totalQuizzes)
+ * 3. Copies all lessons and their associated quizzes
+ * 4. Creates new course with new ID and specified status
+ * 5. Returns the new course with all copied data
+ *
+ * @param {number} originalCourseId - The ID of the course to unarchive (copy from)
+ * @param {string} newStatus - The status for the new course (DRAFT, PUBLISHED, ARCHIVED)
+ * @returns {Promise<Object>} The new course with copied lessons and quizzes
+ * @throws {Error} If original course not found or creation fails
+ */
+const unarchiveCourse = async (originalCourseId, newStatus) => {
+  // Input validation
+  if (!originalCourseId || isNaN(Number(originalCourseId))) {
+    throw new Error('Valid original course ID is required');
+  }
+
+  if (!newStatus || !['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(newStatus)) {
+    throw new Error('Valid status is required (DRAFT, PUBLISHED, or ARCHIVED)');
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    try {
+      // 1. Find the original course with all its data
+      const originalCourse = await tx.course.findUnique({
+        where: { id: originalCourseId },
+        include: {
+          lessons: {
+            include: {
+              quiz: true // Include quizzes for each lesson
+            },
+            orderBy: {
+              day: 'asc' // Maintain lesson order
+            }
+          }
+        }
+      });
+
+      if (!originalCourse) {
+        throw new Error('Original course not found');
+      }
+
+      console.log(`Unarchiving course: ${originalCourse.name} (ID: ${originalCourse.id}) -> New status: ${newStatus}`);
+
+      // 2. Create the new course with copied data
+      const newCourseData = {
+        name: originalCourse.name,
+        description: originalCourse.description,
+        coverImage: originalCourse.coverImage,
+        totalLessons: originalCourse.totalLessons,
+        totalQuizzes: originalCourse.totalQuizzes,
+        adminId: originalCourse.adminId,
+        status: newStatus,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Set publishedAt if the new status is PUBLISHED
+      if (newStatus === 'PUBLISHED') {
+        newCourseData.publishedAt = new Date();
+      }
+
+      const newCourse = await tx.course.create({
+        data: newCourseData
+      });
+
+      // 3. Copy all lessons and their quizzes
+      const newLessons = [];
+      const newQuizzes = [];
+
+      for (const originalLesson of originalCourse.lessons) {
+        // Create new lesson
+        const newLesson = await tx.lesson.create({
+          data: {
+            title: originalLesson.title,
+            content: originalLesson.content,
+            day: originalLesson.day,
+            courseId: newCourse.id,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        newLessons.push(newLesson);
+
+        // Copy quiz if it exists
+        if (originalLesson.quiz) {
+          const newQuiz = await tx.quiz.create({
+            data: {
+              question: originalLesson.quiz.question,
+              options: originalLesson.quiz.options,
+              correctOption: originalLesson.quiz.correctOption,
+              lessonId: newLesson.id
+            }
+          });
+
+          newQuizzes.push(newQuiz);
+        }
+      }
+
+      console.log(`Successfully unarchived course. Created new course (ID: ${newCourse.id}) with ${newLessons.length} lessons and ${newQuizzes.length} quizzes`);
+
+      // 4. Return the new course with all copied data
+      return {
+        ...newCourse,
+        lessons: newLessons,
+        quizzes: newQuizzes,
+        originalCourseId: originalCourse.id
+      };
+
+    } catch (error) {
+      console.error('Unarchive course error:', error);
+      // Provide more specific error messages
+      if (error.code === 'P2025') {
+        throw new Error('Original course not found');
+      }
+      throw new Error(`Failed to unarchive course: ${error.message}`);
+    }
+  });
+};
+
+/**
  * Get courses by status
  * @param {number} adminId - The ID of the admin
  * @param {string} status - Status filter (DRAFT, PUBLISHED, ARCHIVED)
@@ -1099,6 +1219,7 @@ module.exports = {
   getCoursesByStatus, // Function to get courses by status
   publishCourse, // Function to publish a draft course
   archiveCourse, // Function to archive a course
+  unarchiveCourse, // Function to unarchive a course by creating a new copy
   deleteAllCourses, // Function to delete all course data (for testing/cleanup)
   scheduleLessons, // Function to schedule automated lesson delivery via cron jobs
   getCourseById // Function to get a single course by ID with its lessons and quizzes

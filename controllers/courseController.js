@@ -198,12 +198,56 @@ const archiveCourse = async (request, response) => {
         }
 
         const course = await courseService.archiveCourse(courseId);
-        
+
         response.status(200).json(course);
     } catch (error) {
         console.error('Error in archiveCourse:', error);
         response.status(500).json({
             error: error.message || 'Failed to archive course'
+        });
+    }
+};
+
+/**
+ * Unarchive a course by creating a new copy with specified status
+ * @param {Object} request - Express request object
+ * @param {Object} response - Express response object
+ */
+const unarchiveCourse = async (request, response) => {
+    try {
+        const originalCourseId = Number(request.params.courseId);
+
+        if (!originalCourseId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Original course ID is required'
+            });
+        }
+
+        // Get the new status from request body
+        const { status: newStatus } = request.body;
+
+        if (!newStatus || !['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(newStatus)) {
+            return response.status(400).json({
+                success: false,
+                error: 'Valid status is required in request body (DRAFT, PUBLISHED, or ARCHIVED)'
+            });
+        }
+
+        // Call service layer to unarchive the course
+        const newCourse = await courseService.unarchiveCourse(originalCourseId, newStatus);
+
+        response.status(201).json({
+            success: true,
+            message: 'Course unarchived successfully',
+            data: newCourse
+        });
+    } catch (error) {
+        console.error('Error in unarchiveCourse:', error);
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        response.status(statusCode).json({
+            success: false,
+            error: error.message || 'Failed to unarchive course'
         });
     }
 };
@@ -298,5 +342,6 @@ module.exports = {
     getAdminCourses, // Handler for getting all courses for the logged-in admin
     publishCourse, // Handler for publishing a draft course
     archiveCourse, // Handler for archiving a course
+    unarchiveCourse, // Handler for unarchiving a course by creating a new copy
     getCourseById // Handler for getting a single course by ID
 };

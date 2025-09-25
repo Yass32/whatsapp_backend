@@ -445,6 +445,195 @@ const deleteAllLearners = async () => {
 }; 
 
 
+
+
+const getLearnerInsights = async (adminId) => {
+    try {
+        // Get all learners for this admin
+        const learners = await prisma.learner.findMany({
+            where: { adminId: adminId },
+            select: {
+                id: true,
+                name: true,
+                surname: true,
+                number: true,
+                createdAt: true
+            }
+        });
+
+        if (!learners || learners.length === 0) {
+            return {
+                success: true,
+                message: 'No learners found',
+                data: []
+            };
+        }
+
+        // Get comprehensive insights for all learners
+        const insights = [];
+
+        for (const learner of learners) {
+            // Get course progress for this learner
+            const courseProgress = await prisma.courseProgress.findMany({
+                where: { learnerId: learner.id },
+                include: {
+                    course: {
+                        select: {
+                            id: true,
+                            name: true,
+                            totalLessons: true,
+                            totalQuizzes: true
+                        }
+                    }
+                }
+            });
+
+            // Get lesson progress for this learner
+            const lessonProgress = await prisma.lessonProgress.findMany({
+                where: { learnerId: learner.id },
+                include: {
+                    lesson: {
+                        select: {
+                            id: true,
+                            title: true,
+                            day: true,
+                            courseId: true
+                        }
+                    }
+                }
+            });
+
+            // Get quiz scores for this learner
+            const quizScores = await prisma.lessonProgress.findMany({
+                where: {
+                    learnerId: learner.id,
+                    quizScore: { not: null }
+                },
+                select: {
+                    quizScore: true,
+                    lesson: {
+                        select: {
+                            id: true,
+                            title: true
+                        }
+                    }
+                }
+            });
+
+            // Get message interactions for this learner
+            const messageContexts = await prisma.messageContext.findMany({
+                where: { phoneNumber: learner.number },
+                include: {
+                    message: {
+                        select: {
+                            id: true,
+                            body: true,
+                            status: true,
+                            createdAt: true
+                        }
+                    },
+                    course: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    },
+                    lesson: {
+                        select: {
+                            id: true,
+                            title: true
+                        }
+                    },
+                    quiz: {
+                        select: {
+                            id: true,
+                            title: true,
+                            correctOption: true
+                        }
+                    }
+                }
+            });
+
+            // Calculate insights for this learner
+            const completedCourses = courseProgress.filter(cp => cp.completedAt).length;
+            const totalProgressPercent = courseProgress.reduce((sum, cp) => sum + (cp.progressPercent || 0), 0) / courseProgress.length || 0;
+            const averageQuizScore = quizScores.length > 0
+                ? quizScores.reduce((sum, qs) => sum + (qs.quizScore || 0), 0) / quizScores.length
+                : 0;
+
+            const totalMessages = messageContexts.length;
+            const successfulMessages = messageContexts.filter(mc => mc.message?.status === 'delivered' || mc.message?.status === 'read').length;
+
+            insights.push({
+                learner: {
+                    id: learner.id,
+                    name: learner.name,
+                    surname: learner.surname,
+                    number: learner.number,
+                    joinedAt: learner.createdAt
+                },
+                statistics: {
+                    totalCourses: courseProgress.length,
+                    completedCourses: completedCourses,
+                    inProgressCourses: courseProgress.length - completedCourses,
+                    //averageProgress: Math.round(totalProgressPercent * 100) / 100,
+                    totalLessonsCompleted: lessonProgress.filter(lp => lp.completedAt).length,
+                    //totalQuizzesAttempted: quizScores.length,
+                    //averageQuizScore: Math.round(averageQuizScore * 100) / 100,
+                    //totalMessages: totalMessages,
+                    //successfulMessageRate: totalMessages > 0 ? Math.round((successfulMessages / totalMessages) * 100) : 0
+                },
+                recentActivity: {
+                    courseProgress: courseProgress.slice(0, 5).map(cp => ({
+                        courseId: cp.course.id,
+                        courseName: cp.course.name,
+                        progressPercent: cp.progressPercent || 0,
+                        completedAt: cp.completedAt,
+                        completedLessons: cp.completedLessons || 0
+                    })),
+                    lessonProgress: lessonProgress.slice(0, 5).map(lp => ({
+                        lessonId: lp.lesson.id,
+                        lessonTitle: lp.lesson.title,
+                        courseId: lp.lesson.courseId,
+                        completedAt: lp.completedAt,
+                        quizScore: lp.quizScore
+                    })),
+                    messageHistory: messageContexts.slice(0, 5).map(mc => ({
+                        courseId: mc.courseId,
+                        //courseName: mc.course?.name,
+                        lessonId: mc.lessonId,
+                        //lessonTitle: mc.lesson?.title,
+                        messageBody: mc.body,
+                        messageStatus: mc.status,
+                        createdAt: mc.createdAt
+                    }))
+                }
+            });
+        }
+
+        return {
+            success: true,
+            message: 'Learner insights retrieved successfully',
+            data: insights,
+            summary: {
+                totalLearners: learners.length,
+                averageProgress: insights.length > 0
+                    ? Math.round((insights.reduce((sum, i) => sum + i.statistics.averageProgress, 0) / insights.length) * 100) / 100
+                    : 0,
+                averageQuizScore: insights.length > 0
+                    ? Math.round((insights.reduce((sum, i) => sum + i.statistics.averageQuizScore, 0) / insights.length) * 100) / 100
+                    : 0,
+                totalMessages: insights.reduce((sum, i) => sum + i.statistics.totalMessages, 0)
+            }
+        };
+
+    } catch (error) {
+        console.error('Error in getLearnerInsights:', error);
+        throw new Error(`Failed to fetch learner insights: ${error.message}`);
+    }
+};
+
+
 // Export all learner service functions for use in controllers
 module.exports = {
     createLearner, // Function to register new learners
@@ -452,5 +641,6 @@ module.exports = {
     getAllLearners, // Function to retrieve all learners
     updateLearner, // Function to update learner profile information
     deleteLearner, // Function to delete single learner
-    deleteAllLearners // Function to delete all learners with cascading cleanup
+    deleteAllLearners, // Function to delete all learners with cascading cleanup
+    getLearnerInsights // Function to get comprehensive learner analytics and insights
 }

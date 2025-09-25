@@ -243,6 +243,46 @@ const deleteAllLearners = async (request, response) => {
     }
 }
 
+/**
+ * Get comprehensive learner insights and analytics
+ *
+ * Handles GET requests to retrieve detailed analytics for all learners:
+ * - Course progress statistics
+ * - Quiz performance metrics
+ * - Message interaction analytics
+ * - Recent activity tracking
+ * - Overall learner performance summary
+ *
+ * @param {Object} request - Express request object
+ * @param {string} request.params.adminId - Admin ID from URL parameter
+ * @param {Object} response - Express response object
+ * @returns {void} Sends JSON response with learner insights or error
+ */
+const getLearnerInsights = async (request, response) => {
+    try {
+        const adminId = Number(request.params.adminId);
+
+        if (!adminId) {
+            return response.status(400).json({
+                success: false,
+                error: 'Admin ID is required'
+            });
+        }
+
+        // Call service layer to get learner insights
+        const insights = await learnerService.getLearnerInsights(adminId);
+
+        // Return comprehensive insights data
+        response.status(200).json(insights);
+    } catch (error) {
+        console.error('Error in getLearnerInsights:', error);
+        response.status(500).json({
+            success: false,
+            error: error.message || 'Failed to fetch learner insights'
+        });
+    }
+}
+
 // Export all controller functions for use in route handlers
 module.exports = {
     registerLearner, // Handler for learner registration
@@ -251,4 +291,5 @@ module.exports = {
     updateLearner, // Handler for updating learner
     deleteLearner, // Handler for deleting single learner
     deleteAllLearners, // Handler for deleting all learners
+    getLearnerInsights, // Handler for getting comprehensive learner analytics
 }

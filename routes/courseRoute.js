@@ -97,14 +97,29 @@ router.put('/:courseId/publish', courseController.publishCourse);
 /**
  * Archive a course
  * PUT /courses/:courseId/archive
- * 
+ *
  * Changes the status of a course to ARCHIVED
  * Only the course owner (admin) can archive a course
- * 
+ *
  * Authentication: Required (Admin)
  */
 //router.put('/:courseId/archive', authenticateJWT, authorizeAdmin, courseController.archiveCourse);
 router.put('/:courseId/archive', courseController.archiveCourse);
+
+/**
+ * Unarchive a course by creating a new copy
+ * POST /courses/unarchive/:courseId
+ *
+ * Creates a new course by copying all data from an archived course.
+ * The original course remains unchanged, and a new course is created
+ * with the specified status from the request body.
+ *
+ * Request body should contain:
+ * - status: The status for the new course (DRAFT, PUBLISHED, or ARCHIVED)
+ *
+ * Authentication: Required (Admin)
+ */
+router.post('/:courseId/unarchive', courseController.unarchiveCourse);
 
 /**
  * Get courses by status
