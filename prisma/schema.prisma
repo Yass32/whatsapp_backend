@@ -134,7 +134,7 @@ model Lesson {
   content     String
   course      Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId    Int
-  quiz        Quiz?                
+  quiz        Quiz?                // Single quiz for this lesson (back to original)
   day         Int                  // Day in course (e.g., 1, 2, 3)
   lessonProgress LessonProgress[] // Track learner progress for this lesson
   messageContexts MessageContext[] // Messages related to this lesson
@@ -144,7 +144,7 @@ model Lesson {
 
 model Quiz {
   id          Int                  @id @default(autoincrement())
-  lessonId    Int                  @unique
+  lessonId    Int                  @unique // One quiz per lesson (back to original)
   lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   question    String
   options     Json                 // Store options as JSON array, e.g., ["A", "B", "C"]
@@ -182,8 +182,9 @@ model LessonProgress {
   isCompleted     Boolean          @default(false) // Whether the lesson content was completed
   completedAt     DateTime?        // When lesson was completed
   quizScore       Float?           // Score for lesson quiz (0-100)
-  //attempts        Int              @default(0) // Number of quiz attempts
-  //timeSpent       Int?             // Time spent on lesson in minutes
+  quizReply       String?          // Quiz reply from learner
+  //attempts        Int            @default(0) // Number of quiz attempts
+  //timeSpent       Int?           // Time spent on lesson in minutes
   startedAt       DateTime         @default(now())
   lastActivityAt  DateTime         @updatedAt
 

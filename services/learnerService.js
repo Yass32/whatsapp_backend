@@ -522,7 +522,12 @@ const getLearnerInsights = async (adminId) => {
 
             // Get message interactions for this learner
             const messageContexts = await prisma.messageContext.findMany({
-                where: { phoneNumber: learner.number },
+                where: {
+                    phoneNumber: learner.number,
+                    courseId: { gt: 0 }, // courseId is Int (not nullable), so use gt: 0 instead of not: null
+                    lessonId: { gt: 0 },
+                    quizId: { gt: 0 }
+                },
                 include: {
                     message: {
                         select: {
@@ -547,7 +552,7 @@ const getLearnerInsights = async (adminId) => {
                     quiz: {
                         select: {
                             id: true,
-                            title: true,
+                            question: true,
                             correctOption: true
                         }
                     }
@@ -556,7 +561,9 @@ const getLearnerInsights = async (adminId) => {
 
             // Calculate insights for this learner
             const completedCourses = courseProgress.filter(cp => cp.completedAt).length;
-            const totalProgressPercent = courseProgress.reduce((sum, cp) => sum + (cp.progressPercent || 0), 0) / courseProgress.length || 0;
+            const totalProgressPercent = courseProgress.length > 0
+                ? courseProgress.reduce((sum, cp) => sum + (cp.progressPercent || 0), 0) / courseProgress.length
+                : 0;
             const averageQuizScore = quizScores.length > 0
                 ? quizScores.reduce((sum, qs) => sum + (qs.quizScore || 0), 0) / quizScores.length
                 : 0;
@@ -572,6 +579,33 @@ const getLearnerInsights = async (adminId) => {
                     number: learner.number,
                     joinedAt: learner.createdAt
                 },
+                recentActivity: {
+                    courseProgress: courseProgress.map(cp => ({
+                        courseId: cp.course.id,
+                        courseName: cp.course.name,
+                        progressPercent: cp.progressPercent || 0,
+                        completedAt: cp.completedAt,
+                        completedLessons: cp.completedLessons || 0
+                    })),
+                    lessonProgress: lessonProgress.map(lp => ({
+                        lessonId: lp.lesson.id,
+                        lessonTitle: lp.lesson.title,
+                        courseId: lp.lesson.courseId,
+                        completedAt: lp.completedAt,
+                        quizScore: lp.quizScore,
+                        quizReply: lp.quizReply
+                    })),
+                    messageHistory: messageContexts.map(mc => ({
+                        //courseId: mc.courseId,
+                        //courseName: mc.course?.name,
+                        //lessonId: mc.lessonId,
+                        //lessonTitle: mc.lesson?.title,
+                        messageBody: mc.message.body,
+                        messageStatus: mc.message.status,
+                        ...(mc.message.status === 'read' ? { readAt: mc.message.createdAt } : { deliveredAt: mc.message.createdAt }),
+                        quizCorrectOption: mc.quiz?.correctOption,
+                    }))
+                },
                 statistics: {
                     totalCourses: courseProgress.length,
                     completedCourses: completedCourses,
@@ -583,39 +617,11 @@ const getLearnerInsights = async (adminId) => {
                     //totalMessages: totalMessages,
                     //successfulMessageRate: totalMessages > 0 ? Math.round((successfulMessages / totalMessages) * 100) : 0
                 },
-                recentActivity: {
-                    courseProgress: courseProgress.slice(0, 5).map(cp => ({
-                        courseId: cp.course.id,
-                        courseName: cp.course.name,
-                        progressPercent: cp.progressPercent || 0,
-                        completedAt: cp.completedAt,
-                        completedLessons: cp.completedLessons || 0
-                    })),
-                    lessonProgress: lessonProgress.slice(0, 5).map(lp => ({
-                        lessonId: lp.lesson.id,
-                        lessonTitle: lp.lesson.title,
-                        courseId: lp.lesson.courseId,
-                        completedAt: lp.completedAt,
-                        quizScore: lp.quizScore
-                    })),
-                    messageHistory: messageContexts.slice(0, 5).map(mc => ({
-                        courseId: mc.courseId,
-                        //courseName: mc.course?.name,
-                        lessonId: mc.lessonId,
-                        //lessonTitle: mc.lesson?.title,
-                        messageBody: mc.body,
-                        messageStatus: mc.status,
-                        createdAt: mc.createdAt
-                    }))
-                }
             });
         }
 
-        return {
-            success: true,
-            message: 'Learner insights retrieved successfully',
-            data: insights,
-            summary: {
+        /*
+        summary: {
                 totalLearners: learners.length,
                 averageProgress: insights.length > 0
                     ? Math.round((insights.reduce((sum, i) => sum + i.statistics.averageProgress, 0) / insights.length) * 100) / 100
@@ -625,6 +631,12 @@ const getLearnerInsights = async (adminId) => {
                     : 0,
                 totalMessages: insights.reduce((sum, i) => sum + i.statistics.totalMessages, 0)
             }
+
+        */
+
+        return {
+            message: 'Learner insights retrieved successfully',
+            insights,            
         };
 
     } catch (error) {

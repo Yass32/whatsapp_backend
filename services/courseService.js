@@ -428,9 +428,6 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
       // Check if the answer is correct
       if (quizReply === quiz.correctOption || quizReply === quiz.correctOption.substring(0, 22) + '..') {
 
-        // Calculate total quizzes in the course (count lessons with quizzes)
-        //const totalQuizzesInCourse = course.lessons.filter(lesson => lesson.quiz).length;
-
         // Update quiz score by adding percentage points
         courseProgress = await prisma.courseProgress.update({
           where: { id: courseProgress.id },
@@ -454,6 +451,13 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
         // Dont update score and inform user of correct answer
         correct = quiz.correctOption; // Return correct answer for confirmation
       }
+      // Store learner reply to quiz
+      lessonProgress = await prisma.lessonProgress.update({
+        where: { id: lessonProgress.id },
+        data: {
+          quizReply: quizReply // Store learner reply to quiz
+        }
+      });
     }
 
   } 
@@ -763,18 +767,27 @@ const unarchiveCourse = async (originalCourseId, newStatus) => {
 
         newLessons.push(newLesson);
 
-        // Copy quiz if it exists
+        // Copy quizzes if they exist
         if (originalLesson.quiz) {
-          const newQuiz = await tx.quiz.create({
-            data: {
-              question: originalLesson.quiz.question,
-              options: originalLesson.quiz.options,
-              correctOption: originalLesson.quiz.correctOption,
-              lessonId: newLesson.id
-            }
-          });
+          // Validate quiz data before creating
+          if (!originalLesson.quiz.question || !originalLesson.quiz.options || !originalLesson.quiz.correctOption) {
+            console.warn(`Skipping quiz for lesson ${originalLesson.title} - missing required fields`);
+          } else {
+            try {
+              const newQuiz = await tx.quiz.create({
+                data: {
+                  question: originalLesson.quiz.question,
+                  options: originalLesson.quiz.options,
+                  correctOption: originalLesson.quiz.correctOption,
+                  lessonId: newLesson.id
+                }
+              });
 
-          newQuizzes.push(newQuiz);
+              newQuizzes.push(newQuiz);
+            } catch (quizError) {
+              console.error(`Error creating quiz for lesson ${originalLesson.title}:`, quizError);
+            }
+          }
         }
       }
 
@@ -969,39 +982,39 @@ const updateCourse = async (courseId, courseData, lessonsData = [], numbers, sch
 
                   // Handle quiz update
                   if (lessonData.quiz) {
-                      let quizData;
-                      try {
-                          quizData = {
-                              question: lessonData.quiz.question,
-                              options: Array.isArray(lessonData.quiz.options) 
-                                  ? lessonData.quiz.options 
-                                  : JSON.parse(lessonData.quiz.options || '[]'),
-                              correctOption: lessonData.quiz.correctOption
-                          };
-                      } catch (e) {
-                          throw new Error('Invalid quiz options format. Must be a valid JSON array.');
-                      }
+                    let quizData;
+                    try {
+                      quizData = {
+                        question: lessonData.quiz.question,
+                        options: Array.isArray(lessonData.quiz.options)
+                          ? lessonData.quiz.options
+                          : JSON.parse(lessonData.quiz.options || '[]'),
+                        correctOption: lessonData.quiz.correctOption
+                      };
+                    } catch (e) {
+                      throw new Error('Invalid quiz options format. Must be a valid JSON array.');
+                    }
 
-                      if (existingLesson.quiz) {
-                          // Update existing quiz
-                          const updatedQuiz = await tx.quiz.update({
-                              where: { lessonId: existingLesson.id },
-                              data: quizData
-                          });
-                          updatedQuizzes.push(updatedQuiz);
-                      } else {
-                          // Create new quiz
-                          const newQuiz = await tx.quiz.create({
-                              data: {
-                                  ...quizData,
-                                  lesson: { connect: { id: existingLesson.id } }
-                              }
-                          });
-                          updatedQuizzes.push(newQuiz);
-                      }
+                    if (existingLesson.quiz) {
+                      // Update existing quiz
+                      const updatedQuiz = await tx.quiz.update({
+                        where: { id: existingLesson.quiz.id },
+                        data: quizData
+                      });
+                      updatedQuizzes.push(updatedQuiz);
+                    } else {
+                      // Create new quiz
+                      const newQuiz = await tx.quiz.create({
+                        data: {
+                          ...quizData,
+                          lessonId: existingLesson.id
+                        }
+                      });
+                      updatedQuizzes.push(newQuiz);
+                    }
                   } else if (existingLesson.quiz) {
-                      // Remove existing quiz if not in update
-                      await tx.quiz.delete({ where: { lessonId: existingLesson.id } });
+                    // Remove existing quiz if not in update
+                    await tx.quiz.delete({ where: { id: existingLesson.quiz.id } });
                   }
               } else {
                   // Create new lesson
@@ -1137,15 +1150,19 @@ const deleteCourse = async (courseId) => {
         // Get lesson IDs to delete their quizzes and progress
         const lessons = await tx.lesson.findMany({
             where: { courseId },
-            select: { id: true }
+            include: { quiz: true }
+            //select: { id: true }
         });
         const lessonIds = lessons.map(lesson => lesson.id);
 
         // Delete quizzes for these lessons
         if (lessonIds.length > 0) {
-            await tx.quiz.deleteMany({
-                where: { lessonId: { in: lessonIds } }
-            });
+            // Delete all quizzes for these lessons
+            for (const lesson of lessons) {
+                if (lesson.quiz) {
+                    await tx.quiz.delete({ where: { id: lesson.quiz.id } });
+                }
+            }
 
             // Delete lesson progress records
             await tx.lessonProgress.deleteMany({
