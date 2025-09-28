@@ -27,6 +27,7 @@ const express = require('express');
 const axios = require('axios'); // HTTP client (imported but not directly used)
 const cors = require('cors'); // Cross-Origin Resource Sharing
 const helmet = require('helmet'); // Security middleware
+const path = require('path'); // For file path operations
 const app = express();
 
 // Route imports
@@ -36,6 +37,7 @@ const whatsappRoutes = require('./routes/whatsappRoute');
 const webhookRoutes = require('./routes/webhookRoute');
 const courseRoutes = require('./routes/courseRoute');
 const groupRoutes = require('./routes/groupRoute');
+const uploadRoutes = require('./routes/uploadRoute');
 
 // Service imports
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
@@ -60,6 +62,15 @@ app.use(cors());
  * - express.json(): Parses incoming JSON requests
  */
 app.use(express.json());
+
+/**
+ * Static file serving middleware
+ * - Serves uploaded files from uploads/ directory
+ * - Serves test HTML page from public/ directory
+ * - Files are saved to uploads/course_media/ so we serve from there
+ */
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads/course_media', express.static(path.join(__dirname, 'uploads/course_media'))); // Serves uploaded course media files
 
 // === API ROUTES ===
 
@@ -98,6 +109,12 @@ app.use('/api/v1/courses', courseRoutes);
  * Handles group creation, member management, and course assignments
  */
 app.use('/api/v1/groups', groupRoutes);
+
+/**
+ * File upload routes (/api/v1/upload/*)
+ * Handles file uploads, serving, and management
+ */
+app.use('/api/v1/upload', uploadRoutes);
 
 
 

@@ -26,7 +26,7 @@ const validDepartments = ['marketing', 'it', 'learning', 'other'];
  */
 const registerLearner = async (request, response) => {
     try {
-        const { learners, adminId, groupId } = request.body;
+        const { learners, adminId } = request.body;
 
         // Basic validation
         if (!learners || !Array.isArray(learners) || learners.length === 0) {
@@ -43,13 +43,6 @@ const registerLearner = async (request, response) => {
             });
         }
 
-        if (!groupId) {
-            return response.status(400).json({
-                success: false,
-                error: 'Group ID is required to register learners.'
-            });
-        }
-
         // Validate department for each learner
         const validatedLearners = learners.map(learner => ({
             ...learner,
@@ -57,7 +50,7 @@ const registerLearner = async (request, response) => {
         }));
 
         // Call service layer to create new learners in bulk
-        await learnerService.createLearner(validatedLearners, Number(adminId), Number(groupId));
+        await learnerService.createLearner(validatedLearners, Number(adminId));
         
         // Return success response with the count of created learners
         response.status(201).json({
@@ -115,11 +108,11 @@ const getLearner = async (request, response) => {
  */
 const getAllLearners = async (request, response) => {
     try {
-        const requestedAdminId = Number(request.params.adminId);
+        const adminId = Number(request.params.adminId);
         //const authenticatedAdminId = request.user.id;
         
         // Validate admin ID
-        if (!requestedAdminId || isNaN(requestedAdminId)) {
+        if (!adminId || isNaN(adminId)) {
             return response.status(400).json({
                 success: false,
                 error: 'Valid admin ID is required'
@@ -135,13 +128,12 @@ const getAllLearners = async (request, response) => {
         }*/
 
         // Call service layer to fetch all learners for the admin
-        const learners = await learnerService.getAllLearners(requestedAdminId);
+        const learners = await learnerService.getAllLearners(adminId);
         
         // Return array of learners
         response.status(200).json({
-            success: true,
             count: learners.length,
-            data: learners
+            learners
         });
     } catch (error) {
         // Return error response if fetch fails

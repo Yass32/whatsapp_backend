@@ -26,7 +26,7 @@ const prisma = new PrismaClient().$extends(withAccelerate())
  * @returns {Object} Object with count of created learners and success/error info
  * @throws {Error} If creation fails or adminId is invalid
  */
-const createLearner = async (learnersData, adminId, groupId) => {
+const createLearner = async (learnersData, adminId) => {
     try {
         // Validate input
         if (!Array.isArray(learnersData) || learnersData.length === 0) {
@@ -38,18 +38,11 @@ const createLearner = async (learnersData, adminId, groupId) => {
         }
 
         // Verify admin and group exist
-        const [admin, group] = await Promise.all([
-            prisma.admin.findUnique({
-                where: { id: adminId },
-                select: { id: true }
-            }),
-            prisma.group.findUnique({
-                where: { id: groupId },
-                select: { id: true }
-            })
-        ]);
+        const admin = await prisma.admin.findUnique({
+            where: { id: adminId },
+            select: { id: true }
+        });
         if (!admin) throw new Error('Admin not found');
-        if (!group) throw new Error('Group not found');
 
         // Get existing learners to avoid duplicates
         const existingLearners = await prisma.learner.findMany({
@@ -86,16 +79,17 @@ const createLearner = async (learnersData, adminId, groupId) => {
         // Combine all learner IDs
         const allLearnerIds = [...newLearnerIds, ...existingLearnerIds];
 
-        // Add the learners to the group
-        const groupMembers = await groupService.addMembersToGroup(groupId, allLearnerIds);
-
         // Queue welcome messages only for the newly created learners
         for (const learner of newLearnersData) {
             console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
             addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
         }
         
-        return;
+        return { 
+            count: newLearnersData.length,
+            message: 'Learners registered successfully',
+            data: newLearnersData
+        };
     } catch (error) {
         console.error("Learner creation error:", error); 
         throw new Error(`Failed to register learners: ${error.message}`);
@@ -251,7 +245,7 @@ const getAllLearners = async (adminId) => {
         // Fetch all learners for the specified admin
         const learners = await prisma.learner.findMany({
             where: {
-                adminId: Number(adminId)
+                adminId
             },
             orderBy: {
                 createdAt: 'desc' // Newest first

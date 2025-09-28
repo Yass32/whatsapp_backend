@@ -136,6 +136,8 @@ model Lesson {
   courseId    Int
   quiz        Quiz?                // Single quiz for this lesson (back to original)
   day         Int                  // Day in course (e.g., 1, 2, 3)
+  document    String?              // Document file path
+  media       String?              // Media file path
   lessonProgress LessonProgress[] // Track learner progress for this lesson
   messageContexts MessageContext[] // Messages related to this lesson
   createdAt   DateTime             @default(now())
