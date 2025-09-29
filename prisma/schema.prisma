@@ -138,6 +138,7 @@ model Lesson {
   day         Int                  // Day in course (e.g., 1, 2, 3)
   document    String?              // Document file path
   media       String?              // Media file path
+  externalLink String?            // External link URL
   lessonProgress LessonProgress[] // Track learner progress for this lesson
   messageContexts MessageContext[] // Messages related to this lesson
   createdAt   DateTime             @default(now())

@@ -275,7 +275,10 @@ const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:0
             title: lesson.title, // Lesson title/name
             content: lesson.content, // Main lesson content/text
             courseId: course.id, // Link to the parent course
-            day: Number(lesson.day) // Day number for ordering (1, 2, 3, etc.)
+            day: Number(lesson.day), // Day number for ordering (1, 2, 3, etc.)
+            document: lesson.document || null, // Document file path
+            media: lesson.media || null, // Media file path
+            externalLink: lesson.externalLink || null, // External link URL
           }
         });
         lessons.push(createdLesson); // Add to results array
@@ -759,6 +762,9 @@ const unarchiveCourse = async (originalCourseId, newStatus) => {
             title: originalLesson.title,
             content: originalLesson.content,
             day: originalLesson.day,
+            document: originalLesson.document || null,
+            media: originalLesson.media || null,
+            externalLink: originalLesson.externalLink || null,
             courseId: newCourse.id,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -974,6 +980,9 @@ const updateCourse = async (courseId, courseData, lessonsData = [], numbers, sch
                           title: lessonData.title,
                           content: lessonData.content,
                           day: Number(lessonData.day),
+                          document: lessonData.document || null,
+                          media: lessonData.media || null,
+                          externalLink: lessonData.externalLink || null,
                           updatedAt: new Date()
                       },
                       include: { quiz: true }

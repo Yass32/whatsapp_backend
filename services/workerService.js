@@ -71,6 +71,20 @@ const lessonProcessor = async (job) => {
     // Add a small delay to ensure proper message ordering
     await new Promise(resolve => setTimeout(resolve, 60000));
 
+    // Send document if available
+    if (lesson.document) await whatsappService.sendDocument(phoneNumber, lesson.document);
+
+    // Send media if available
+    if (lesson.media) {
+      if (lesson.media.endsWith('.mp4')) {  
+        await whatsappService.sendVideo(phoneNumber, lesson.media);
+      } else {
+        await whatsappService.sendImageMessage(phoneNumber, lesson.media);
+      }
+    }
+
+    // Send external link if available
+    if (lesson.externalLink) await whatsappService.sendTextMessage(phoneNumber, lesson.externalLink);
 
     // Send quiz if available
     if (lesson.quiz) {

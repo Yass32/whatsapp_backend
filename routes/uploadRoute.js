@@ -113,7 +113,7 @@ router.post('/single', upload.single('file'), (request, response) => {
 
 
 // Cover Image
-router.post("/upload/cover", upload.single("file"), (request, response) => {
+router.post("/cover", upload.single("file"), (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -145,7 +145,7 @@ router.post("/upload/cover", upload.single("file"), (request, response) => {
 });
 
 // Document
-router.post("/upload/document", upload.single("file"), (request, response) => {
+router.post("/document", upload.single("file"), (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -177,7 +177,7 @@ router.post("/upload/document", upload.single("file"), (request, response) => {
 });
 
 // Media (video/audio/image)
-router.post("/upload/media", upload.single("file"), (request, response) => {
+router.post("/media", upload.single("file"), (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
