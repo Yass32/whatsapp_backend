@@ -130,6 +130,21 @@ app.use('/api/v1/upload', uploadRoutes);
  * 3. Establish ngrok tunnel for webhook development
  * 4. Log startup information and tunnel URL
  */
+
+app.listen(PORT, async () => {
+  console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
+  console.log(`📚 API Base URL: https://your-service.onrender.com/api/v1`);
+
+  console.log('👷 Initializing message queue worker...');
+  console.log('📅 Initializing automatic cleanup scheduler...');
+  scheduleAutomaticCleanup();
+
+  console.log('\n🎯 Server initialization complete!');
+  console.log('📖 Ready to process WhatsApp e-learning requests');
+});
+
+
+
 app.listen(PORT, async () => {
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
     console.log(`📚 API Base URL: https://climbing-cosmic-pegasus.ngrok-free.app:${PORT}/api/v1`);
@@ -139,7 +154,8 @@ app.listen(PORT, async () => {
     /**
      * Start automatic cleanup scheduler
      * Runs weekly cleanup of expired message contexts and old messages
-     */
+    */
+     
     console.log('👷 Initializing message queue worker...');
     // The worker is started by requiring the file, no further action needed here.
 
@@ -158,7 +174,7 @@ app.listen(PORT, async () => {
      * - addr: Local server port
      * - authtoken: ngrok authentication token from environment
      * - domain: Reserved static domain for consistent webhook URL
-     */
+     
     try {
         console.log('🌐 Starting ngrok tunnel for webhook development...');
         
@@ -181,10 +197,12 @@ app.listen(PORT, async () => {
         console.log('⚠️  Server will continue without ngrok tunnel');
         console.log('💡 For webhook testing, manually configure a public URL');
     }
+    */
     
     console.log('\n🎯 Server initialization complete!');
     console.log('📖 Ready to process WhatsApp e-learning requests');
 });
+
 
 // === GLOBAL ERROR HANDLERS ===
 
