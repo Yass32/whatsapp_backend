@@ -15,7 +15,7 @@
 // Import required dependencies
 const axios = require('axios'); // HTTP client for API requests
 const { format } = require("date-fns"); // Date formatting utility
-const { PrismaClient } = require('../generated/prisma'); // Database ORM client
+const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 
 // Initialize Prisma client with acceleration for better performance

@@ -14,7 +14,7 @@
 
 // Import required dependencies
 const { format } = require("date-fns"); // Date formatting utility
-const { PrismaClient } = require('../generated/prisma'); // Database ORM client
+const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 const { sendTextMessage } = require('./whatsappService'); // WhatsApp messaging service
 

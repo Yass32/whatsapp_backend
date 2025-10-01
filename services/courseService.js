@@ -14,7 +14,7 @@
 // Import required dependencies
 const cron = require('node-cron'); // Cron job scheduler for automated tasks
 const cronParser = require('cron-parser'); // Parse cron expressions for scheduling
-const { PrismaClient } = require('../generated/prisma'); // Database ORM client
+const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 const { sendTextMessage, sendImageMessage, sendTemplateMessage, sendInteractiveMessage, sendInteractiveListMessage } = require('../services/whatsappService'); // WhatsApp messaging functions
 const { storeMessageContext } = require('../services/webhookService'); // Message context storage for replies

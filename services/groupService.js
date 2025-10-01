@@ -8,7 +8,7 @@
  * - Bulk operations for efficiency
  */
 
-const { PrismaClient } = require('../generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const { withAccelerate } = require('@prisma/extension-accelerate');
 
 // Initialize Prisma client with Accelerate extension

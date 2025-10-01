@@ -8,7 +8,7 @@
  * - Integration with course enrollment and progress tracking
  */
 
-const { PrismaClient } = require('../generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
 const { welcomeQueue, addJobToQueue } = require('./queueService');
 const groupService = require('./groupService');

@@ -7,7 +7,7 @@
  * - Refresh token rotation
  */
 
-const { PrismaClient } = require('../generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const { withAccelerate } = require('@prisma/extension-accelerate');
 const jwt = require('jsonwebtoken');
 

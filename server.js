@@ -43,6 +43,7 @@ const uploadRoutes = require('./routes/uploadRoute');
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
 const ngrok = require('@ngrok/ngrok'); // Development tunnel for webhook testing
 require('./services/workerService.js'); // Initialize and start the message queue worker
+require('./test-db.js'); 
 
 // Server configuration
 const PORT = process.env.PORT || 3000;

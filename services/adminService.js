@@ -8,7 +8,7 @@
  * - Password hashing and verification
  */
 
-const { PrismaClient } = require('../generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const { withAccelerate } = require('@prisma/extension-accelerate'); 
 const bcrypt = require('bcrypt'); // For password hashing
 const jwt = require("jsonwebtoken"); // For JWT token generation

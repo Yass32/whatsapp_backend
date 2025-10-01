@@ -8,7 +8,7 @@
  * - Manual cleanup execution for maintenance
  */
 
-const { PrismaClient } = require('../generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const cron = require('node-cron'); // For scheduling automated cleanup tasks
 
 // Initialize Prisma client for database operations
