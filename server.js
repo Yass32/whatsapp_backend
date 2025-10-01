@@ -24,7 +24,8 @@ require('dotenv').config();
 
 // Core dependencies
 const express = require('express');
-const axios = require('axios'); // HTTP client (imported but not directly used)
+const morgan = require('morgan'); // Import the request logger
+//const axios = require('axios'); // HTTP client (imported but not directly used)
 const cors = require('cors'); // Cross-Origin Resource Sharing
 const helmet = require('helmet'); // Security middleware
 const path = require('path'); // For file path operations
@@ -41,9 +42,9 @@ const uploadRoutes = require('./routes/uploadRoute');
 
 // Service imports
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
-const ngrok = require('@ngrok/ngrok'); // Development tunnel for webhook testing
+//const ngrok = require('@ngrok/ngrok'); // Development tunnel for webhook testing
 require('./services/workerService.js'); // Initialize and start the message queue worker
-require('./test-db.js'); 
+const testConnection = require('./test-db.js'); 
 
 // Server configuration
 const PORT = process.env.PORT || 3000;
@@ -57,6 +58,13 @@ const PORT = process.env.PORT || 3000;
  */
 app.use(helmet());
 app.use(cors());
+
+/**
+ * Request Logging Middleware
+ * - morgan('combined'): Logs the incoming request details (Method, URL, Status, Response Time)
+ * to the console (stdout), which Render captures.
+ */
+app.use(morgan('combined')); // Request logging enabled
 
 /**
  * Body parser middleware
@@ -147,6 +155,9 @@ app.listen(PORT, async () => {
 
     console.log('📅 Initializing automatic cleanup scheduler...');
     scheduleAutomaticCleanup();
+
+    console.log('🔄 Testing database connection...');
+    testConnection();
     
     // === DEVELOPMENT TUNNEL SETUP ===
     
