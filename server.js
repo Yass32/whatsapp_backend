@@ -130,24 +130,9 @@ app.use('/api/v1/upload', uploadRoutes);
  * 3. Establish ngrok tunnel for webhook development
  * 4. Log startup information and tunnel URL
  */
-
-app.listen(PORT, async () => {
-  console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
-  console.log(`📚 API Base URL: https://your-service.onrender.com/api/v1`);
-
-  console.log('👷 Initializing message queue worker...');
-  console.log('📅 Initializing automatic cleanup scheduler...');
-  scheduleAutomaticCleanup();
-
-  console.log('\n🎯 Server initialization complete!');
-  console.log('📖 Ready to process WhatsApp e-learning requests');
-});
-
-
-
 app.listen(PORT, async () => {
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
-    console.log(`📚 API Base URL: https://climbing-cosmic-pegasus.ngrok-free.app:${PORT}/api/v1`);
+    console.log(`📚 API Base URL: https://whatsapp-backend-s4dm.onrender.com/api/v1`);
     
     // === INITIALIZE SERVICES ===
     

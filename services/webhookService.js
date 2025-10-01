@@ -143,6 +143,7 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
 
     // Extract basic message information
     const { from, id, timestamp, type } = messages;
+    console.log(messages);
     
     // Validate that required fields are present
     if (!from || !id || !timestamp) {
