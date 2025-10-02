@@ -44,7 +44,14 @@ const uploadRoutes = require('./routes/uploadRoute');
 const { scheduleAutomaticCleanup } = require('./services/cleanupService');
 //const ngrok = require('@ngrok/ngrok'); // Development tunnel for webhook testing
 require('./services/workerService.js'); // Initialize and start the message queue worker
-const testConnection = require('./test-db.js'); 
+
+// Optional database connection test (won't crash server if it fails)
+try {
+  const testConnection = require('./test-db.js');
+  // Test will run but won't crash server if it fails
+} catch (error) {
+  console.warn('⚠️ Database connection test file not found or has errors');
+} 
 
 // Server configuration
 const PORT = process.env.PORT || 3000;
@@ -139,63 +146,38 @@ app.use('/api/v1/upload', uploadRoutes);
  * 3. Establish ngrok tunnel for webhook development
  * 4. Log startup information and tunnel URL
  */
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
+    const BASE_URL = process.env.NODE_ENV === 'production'
+        ? (process.env.BASE_URL || `http://localhost:${PORT}`)
+        : `http://localhost:${PORT}`;
+
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
     console.log(`📚 API Base URL: https://whatsapp-backend-s4dm.onrender.com/api/v1`);
-    
+
     // === INITIALIZE SERVICES ===
-    
+
     /**
      * Start automatic cleanup scheduler
      * Runs weekly cleanup of expired message contexts and old messages
-    */
-     
+     */
+
     console.log('👷 Initializing message queue worker...');
     // The worker is started by requiring the file, no further action needed here.
 
     console.log('📅 Initializing automatic cleanup scheduler...');
     scheduleAutomaticCleanup();
 
-    console.log('🔄 Testing database connection...');
-    testConnection();
-    
-    // === DEVELOPMENT TUNNEL SETUP ===
-    
-    /**
-     * Initialize ngrok tunnel for webhook development
-     * 
-     * ngrok provides a public URL that forwards to localhost,
-     * enabling WhatsApp to send webhook events to the local server.
-     * 
-     * Configuration:
-     * - addr: Local server port
-     * - authtoken: ngrok authentication token from environment
-     * - domain: Reserved static domain for consistent webhook URL
-     
+    // Optional database connection test (async and won't crash server)
     try {
-        console.log('🌐 Starting ngrok tunnel for webhook development...');
-        
-        const listener = await ngrok.connect({
-            addr: PORT, // Forward to local server port
-            authtoken: process.env.NGROK_AUTHTOKEN, // Auth token from .env file
-            domain: 'climbing-cosmic-pegasus.ngrok-free.app' // Reserved static domain
-        });
-        
-        console.log(`✅ ngrok tunnel established: ${listener.url()}`);
-        console.log(`🔗 Webhook URL: ${listener.url()}/api/v1/webhook`);
-        console.log('📱 Configure this URL in WhatsApp Business API webhook settings');
-        
-    } catch (error) {
-        // Log ngrok errors but don't crash the server
-        console.error('❌ Error starting ngrok tunnel:', error.message);
-        if (error.response?.data) {
-            console.error('📄 ngrok error details:', error.response.data);
+        if (testConnection) {
+            await testConnection();
+            console.log('✅ Database connection verified');
         }
-        console.log('⚠️  Server will continue without ngrok tunnel');
-        console.log('💡 For webhook testing, manually configure a public URL');
+    } catch (error) {
+        console.warn('⚠️ Database connection test failed:', error.message);
+        console.log('💡 Server will continue without database connection');
     }
-    */
-    
+
     console.log('\n🎯 Server initialization complete!');
     console.log('📖 Ready to process WhatsApp e-learning requests');
 });
@@ -207,14 +189,24 @@ app.listen(PORT, async () => {
 process.on('unhandledRejection', (err) => {
   console.error('UNHANDLED REJECTION! 💥 Shutting down...');
   console.error(err.name, err.message);
-  server.close(() => {
-    process.exit(1); // Exit with failure code
-  });
+  if (server) {
+    server.close(() => {
+      process.exit(1); // Exit with failure code
+    });
+  } else {
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown for uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
   console.error(err.name, err.message);
-  process.exit(1); // Immediately exit, as state is unclean
+  if (server) {
+    server.close(() => {
+      process.exit(1); // Immediately exit, as state is unclean
+    });
+  } else {
+    process.exit(1);
+  }
 });

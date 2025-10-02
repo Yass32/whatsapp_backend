@@ -71,7 +71,7 @@ model GroupCourse {
 
 model Learner {
   id              Int                @id @default(autoincrement())
-  active          Boolean            @default(false)
+  active          Boolean            @default(true)
   name            String
   surname         String
   email           String             @unique
