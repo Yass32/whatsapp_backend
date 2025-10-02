@@ -147,9 +147,12 @@ app.use('/api/v1/upload', uploadRoutes);
  * 4. Log startup information and tunnel URL
  */
 const server = app.listen(PORT, async () => {
+  /*
     const BASE_URL = process.env.NODE_ENV === 'production'
         ? (process.env.BASE_URL || `http://localhost:${PORT}`)
         : `http://localhost:${PORT}`;
+
+        */
 
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
     console.log(`📚 API Base URL: https://whatsapp-backend-s4dm.onrender.com/api/v1`);

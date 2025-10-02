@@ -429,7 +429,8 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
 
     if (quiz) {
       // Check if the answer is correct
-      if (quizReply === quiz.correctOption || quizReply === quiz.correctOption.substring(0, 22) + '..') {
+      if (quizReply === quiz.correctOption || 
+          (quiz.correctOption && quizReply === quiz.correctOption.substring(0, 22) + '..')) {
 
         // Update quiz score by adding percentage points
         courseProgress = await prisma.courseProgress.update({
@@ -1087,16 +1088,18 @@ const updateCourse = async (courseId, courseData, lessonsData = [], numbers, sch
               // This will run after the transaction commits
               process.nextTick(async () => {
                   try {
-                      await Promise.all(learnersToNotify.map(to => 
+                      const notificationResults = await Promise.all(learnersToNotify.map(to => 
                           addJobToQueue(notificationQueue, 'sendNotification', { 
                               to, 
                               courseData: updatedCourse, 
                               course: updatedCourse 
                           })
                       ));
+                      console.log(`✅ Queued ${notificationResults.length} notifications`);
+
                       await scheduleLessons(updatedCourse.id, numbers, scheduleTime, startDate, frequency);
                   } catch (error) {
-                      console.error('Error scheduling notifications:', error);
+                      console.error('❌ Failed to queue notifications or schedule lessons:', error.message);
                   }
               });
           }
