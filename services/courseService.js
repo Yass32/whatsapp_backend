@@ -225,10 +225,10 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
  * @returns {Object} Result object with course, lessons, quizzes, enrollments, and scheduling info
  * @throws {Error} If validation fails or database transaction fails
  */
-const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:00', startDate=new Date().toISOString().split('T')[0], frequency='daily') => {
+const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='09:00', startDate=new Date().toISOString().split('T')[0], frequency='daily') => {
   // Validate required parameters before starting transaction
-  if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
-    throw new Error('At least one phone number is required'); // Must have recipients
+  if (!learnerIds || !Array.isArray(learnerIds) || learnerIds.length === 0) {
+    throw new Error('At least one learner ID is required'); // Must have recipients
   }
   if (!courseData || !courseData.name || !courseData.description) {
     throw new Error('Course name and description are required'); // Must have basic course info
@@ -308,7 +308,7 @@ const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:0
       // Step 3: Create enrollments for all valid learners
       // First, find all learners that exist with the provided phone numbers
       const learners = await tx.learner.findMany({
-        where: { number: { in: numbers } } // Find learners whose numbers are in our array
+        where: { id: { in: learnerIds } } // Find learners whose numbers are in our array
       });
 
       // Ensure we found at least one valid learner
@@ -351,7 +351,7 @@ const createCourse = async (courseData, lessonsData, numbers, scheduleTime='09:0
 
   // Step 5: Schedule automated lesson delivery
   // This creates cron jobs to send lessons at specified times instead of immediately
-  const scheduleLessonsResponse = await scheduleLessons(course.id, numbers, scheduleTime, startDate, frequency);
+  const scheduleLessonsResponse = await scheduleLessons(course.id, learnersToNotify, scheduleTime, startDate, frequency);
 
   // Return all created data for confirmation
   return { scheduleLessonsResponse, course, lessons, quizzes, enrollments };

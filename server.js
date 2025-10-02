@@ -69,9 +69,10 @@ app.use(cors());
 /**
  * Request Logging Middleware
  * - morgan('combined'): Logs the incoming request details (Method, URL, Status, Response Time)
+ * 
  * to the console (stdout), which Render captures.
  */
-app.use(morgan('combined')); // Request logging enabled
+app.use(morgan('tiny')); // Request logging enabled
 
 /**
  * Body parser middleware
