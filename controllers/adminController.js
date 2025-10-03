@@ -30,6 +30,21 @@ const registerUser = async (request, response) => {
     try {
         const userData = request.body;
         
+        // Validate required fields
+        if (!userData.email || !userData.password || !userData.name) {
+            return response.status(400).json({
+                error: 'Email, password, and name are required'
+            });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userData.email)) {
+            return response.status(400).json({
+                error: 'Invalid email format'
+            });
+        }
+        
         // If department is provided and not valid, set to 'other'
         if (userData.department && !validDepartments.includes(userData.department)) {
             userData.department = 'other';
@@ -41,8 +56,9 @@ const registerUser = async (request, response) => {
         // Return success response with created user data
         response.status(201).json(newUser);
     } catch (error) {
-        // Return error response if registration fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        const statusCode = error.message.includes('already exists') || error.message.includes('already in use') ? 409 : 500;
+        response.status(statusCode).json({error: error.message});
     }
 }
 
@@ -90,7 +106,9 @@ const loginUser = async (request, response) => {
         
         // If email or password is missing, return error
         if (!request.body.email || !request.body.password) {
-            throw new Error('Email and password are required');
+            return response.status(400).json({ 
+                error: 'Email and password are required' 
+            });
         }
 
         // Call service layer to authenticate user
@@ -101,8 +119,9 @@ const loginUser = async (request, response) => {
 
 
     } catch (error) {
-        // Return error response if login fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        const statusCode = error.message.includes('Invalid') || error.message.includes('not found') ? 401 : 500;
+        response.status(statusCode).json({error: error.message});
     }
 }
 

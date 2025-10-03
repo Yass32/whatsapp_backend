@@ -290,6 +290,10 @@ const updateLearner = async (userId, requestBody) => {
         if (email) updateData.email = email;
         if (number) updateData.number = number;
 
+        // Validate that at least one field is provided
+        if (Object.keys(updateData).length === 0) {
+            throw new Error('No fields provided for update');
+        }
         
         // Update learner in database
         const learner = await prisma.learner.update({
@@ -304,9 +308,6 @@ const updateLearner = async (userId, requestBody) => {
         
         return learner; // Return updated learner
     } catch (error) {
-        if (error.message === 'Invalid department value') {
-            throw error;
-        }
         // Handle Prisma unique constraint violations
         if (error.code === 'P2002') {
             throw new Error('Email address is already in use');

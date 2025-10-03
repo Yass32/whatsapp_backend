@@ -44,6 +44,15 @@ const createGroup = async (groupData) => {
  */
 const addMembersToGroup = async (groupId, learnerIds) => {
     try {
+        // Validate input
+        if (!groupId || isNaN(Number(groupId))) {
+            throw new Error('Valid group ID is required');
+        }
+        
+        if (!Array.isArray(learnerIds) || learnerIds.length === 0) {
+            throw new Error('Learner IDs must be a non-empty array');
+        }
+
         // First, verify the group exists
         const group = await prisma.group.findUnique({
             where: { id: groupId }
@@ -54,6 +63,18 @@ const addMembersToGroup = async (groupId, learnerIds) => {
         }
 
         console.log("learnerIds from groupservice", learnerIds);
+
+        // Verify all learners exist
+        const existingLearners = await prisma.learner.findMany({
+            where: { id: { in: learnerIds } },
+            select: { id: true }
+        });
+
+        if (existingLearners.length !== learnerIds.length) {
+            const foundIds = new Set(existingLearners.map(learner => learner.id));
+            const missingIds = learnerIds.filter(id => !foundIds.has(id));
+            throw new Error(`Learners not found: ${missingIds.join(', ')}`);
+        }
 
         // Get existing memberships to avoid duplicates
         const existingMembers = await prisma.groupMember.findMany({
@@ -106,12 +127,40 @@ const addMembersToGroup = async (groupId, learnerIds) => {
  */
 const removeMembersFromGroup = async (groupId, learnerIds) => {
     try {
+        // Validate input
+        if (!groupId || isNaN(Number(groupId))) {
+            throw new Error('Valid group ID is required');
+        }
+        
+        if (!Array.isArray(learnerIds) || learnerIds.length === 0) {
+            throw new Error('Learner IDs must be a non-empty array');
+        }
+
+        // Verify group exists
+        const group = await prisma.group.findUnique({
+            where: { id: groupId },
+            select: { id: true }
+        });
+
+        if (!group) {
+            throw new Error('Group not found');
+        }
+
         const result = await prisma.groupMember.deleteMany({
             where: {
                 groupId,
                 learnerId: { in: learnerIds }
             }
         });
+
+        if (result.count === 0) {
+            return { 
+                success: true, 
+                count: 0, 
+                message: 'No members found to remove',
+                data: result
+            };
+        }
 
         return { 
             success: true, 

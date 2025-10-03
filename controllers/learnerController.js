@@ -70,15 +70,23 @@ const getLearner = async (request, response) => {
     // Extract learner ID from URL parameters
     const learnerId = Number(request.params.learnerId);
     
+    // Validate learner ID
+    if (!learnerId || isNaN(learnerId)) {
+        return response.status(400).json({
+            error: 'Valid learner ID is required'
+        });
+    }
+    
     try {
         // Call service layer to fetch learner data
         const learner = await learnerService.getLearner(learnerId);
         
-        // Return learner data (should be 200, not 201)
+        // Return learner data
         response.status(200).json(learner);
     } catch (error) {
-        // Return error response if learner not found or fetch fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        response.status(statusCode).json({error: error.message});
     }
 }
 
@@ -152,15 +160,26 @@ const updateLearner = async (request, response) => {
     const learnerId = Number(request.params.learnerId);
     const requestBody = request.body;
     
+    // Validate learner ID
+    if (!learnerId || isNaN(learnerId)) {
+        return response.status(400).json({
+            error: 'Valid learner ID is required'
+        });
+    }
+    
     try {
         // Call service layer to update learner
         const updatedLearner = await learnerService.updateLearner(learnerId, requestBody);
         
         // Return updated learner data
-        response.status(200).json({message: "Learner updated successfully", updatedLearner});
+        response.status(200).json(updatedLearner);
     } catch (error) {
-        // Return error response if update fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        let statusCode = 500;
+        if (error.message.includes('not found')) statusCode = 404;
+        else if (error.message.includes('No fields provided') || error.message.includes('already in use')) statusCode = 400;
+        
+        response.status(statusCode).json({error: error.message});
     }
 }
 
@@ -183,21 +202,31 @@ const deleteLearner = async (request, response) => {
     // Extract learner ID from URL parameters
     const learnerId = Number(request.params.learnerId);
     
+    // Validate learner ID
+    if (!learnerId || isNaN(learnerId)) {
+        return response.status(400).json({
+            error: 'Valid learner ID is required'
+        });
+    }
+    
     try {
         // Call service layer to delete learner
-        const deletedLearner = await learnerService.deleteLearner(learnerId);
+        await learnerService.deleteLearner(learnerId);
         
-        // Return deleted learner data for confirmation
-        response.status(200).json({message: "Learner deleted successfully", deletedLearner});
+        // Return success message
+        response.status(200).json({ 
+            message: 'Learner deleted successfully' 
+        });
     } catch (error) {
-        // Return error response if deletion fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        response.status(statusCode).json({error: error.message});
     }
 }
 
 /**
  * Delete all learners and related data
- * 
+{{ ... }}
  * Handles DELETE requests to remove all learners:
  * - Cascading deletion of learners and related data
  * - Removes enrollments, progress, and learner records

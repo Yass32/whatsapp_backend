@@ -84,72 +84,134 @@ app.use(express.json());
 
 
 /**
- * Custom Request/Response Attribute Middleware
- * This middleware captures request and response bodies, timing, and status,
- * logging essential transaction markers to the console and adding body snippets 
- * as custom attributes to the New Relic transaction trace for deep debugging.
+ * Custom Request/Response Logging Middleware
+ * Logs all incoming requests and outgoing responses with detailed information:
+ * - Request: Method, URL, Headers, Query Params, Body
+ * - Response: Status Code, Duration, Body
  */
 app.use((req, res, next) => {
     const start = Date.now();
-    // New Relic custom attribute strings have a 4KB limit, so we keep the 500 character limit.
-    const bodyLimit = 500; 
+    const bodyLimit = 1000; // Character limit for body logging
     
-    // Log start of incoming request for local console visibility
-    console.log(`\n======================================================`);
-    console.log(`[REQ START] ${req.method} ${req.originalUrl}`);
+    // Log incoming request details
+    console.log(`\n${'='.repeat(70)}`);
+    console.log(`📥 INCOMING REQUEST`);
+    console.log(`${'='.repeat(70)}`);
+    console.log(`⏰ Time:        ${new Date().toISOString()}`);
+    console.log(`🔹 Method:      ${req.method}`);
+    console.log(`🔹 URL:         ${req.originalUrl}`);
+    console.log(`🔹 IP:          ${req.ip || req.connection.remoteAddress}`);
     
-    // Process and attribute the request body (only for non-GET/HEAD requests)
-    if (req.method !== 'GET' && req.method !== 'HEAD' && Object.keys(req.body).length > 0) {
-        const bodyString = JSON.stringify(req.body, null, 2);
-        const bodySnippet = bodyString.substring(0, bodyLimit) + (bodyString.length > bodyLimit ? '...' : '');
-
-        // Add to New Relic custom attribute
-        newrelic.addCustomAttribute('request.body_snippet', bodySnippet);
+    // Log headers (excluding sensitive ones)
+    const safeHeaders = { ...req.headers };
+    delete safeHeaders.authorization;
+    delete safeHeaders.cookie;
+    console.log(`🔹 Headers:     ${JSON.stringify(safeHeaders, null, 2)}`);
+    
+    // Log query parameters if present
+    if (Object.keys(req.query).length > 0) {
+        console.log(`🔹 Query:       ${JSON.stringify(req.query, null, 2)}`);
     }
-
-    // --- Monkey-Patching Response to Capture Body ---
-    let responseBody = {};
+    
+    // Log request body (for non-GET/HEAD requests)
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body && Object.keys(req.body).length > 0) {
+        const bodyString = JSON.stringify(req.body, null, 2);
+        const bodySnippet = bodyString.length > bodyLimit 
+            ? bodyString.substring(0, bodyLimit) + '... [TRUNCATED]' 
+            : bodyString;
+        console.log(`🔹 Body:        ${bodySnippet}`);
+        
+        // Add to New Relic if available
+        if (typeof newrelic !== 'undefined' && newrelic.addCustomAttribute) {
+            newrelic.addCustomAttribute('request.body_snippet', bodySnippet);
+        }
+    }
+    
+    // Capture response body
+    let responseBody = null;
     const originalJson = res.json;
     const originalSend = res.send;
 
-    // Capture response data when res.json is called
+    // Override res.json to capture JSON responses
     res.json = function(body) {
-        responseBody = body; // Capture the JSON object
-        return originalJson.apply(res, arguments); // Call the original method to send
+        responseBody = body;
+        return originalJson.apply(res, arguments);
     };
 
-    // Capture response data when res.send is called
+    // Override res.send to capture other responses
     res.send = function(body) {
-        if (typeof body === 'string' || typeof body === 'object') {
-            try {
-                // Try to parse if it's a stringified JSON (common in express)
-                responseBody = JSON.parse(body); 
-            } catch (e) {
-                // Otherwise, capture the raw body
+        if (!responseBody) {
+            if (typeof body === 'string') {
+                try {
+                    responseBody = JSON.parse(body);
+                } catch (e) {
+                    responseBody = body;
+                }
+            } else {
                 responseBody = body;
             }
         }
-        return originalSend.apply(res, arguments); // Call the original method to send
+        return originalSend.apply(res, arguments);
     };
 
-    // Listen for the 'finish' event on the response object to log final details
+    // Log response when finished
     res.on('finish', () => {
         const duration = Date.now() - start;
         
-        // Log the final status and time
-        console.log(`[REQ DONE] ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Time: ${duration}ms`);
-
-        // Attribute the response body to New Relic
-        const bodyString = JSON.stringify(responseBody, null, 2);
-        const bodySnippet = bodyString.substring(0, bodyLimit) + (bodyString.length > bodyLimit ? '...' : '');
-
-        newrelic.addCustomAttribute('response.body_snippet', bodySnippet);
+        console.log(`\n${'─'.repeat(70)}`);
+        console.log(`📤 OUTGOING RESPONSE`);
+        console.log(`${'─'.repeat(70)}`);
+        console.log(`⏰ Time:        ${new Date().toISOString()}`);
+        console.log(`🔹 Method:      ${req.method}`);
+        console.log(`🔹 URL:         ${req.originalUrl}`);
+        console.log(`🔹 Status:      ${res.statusCode} ${getStatusText(res.statusCode)}`);
+        console.log(`🔹 Duration:    ${duration}ms`);
         
-        console.log(`======================================================\n`);
+        // Log response body if present
+        if (responseBody) {
+            const bodyString = typeof responseBody === 'object' 
+                ? JSON.stringify(responseBody, null, 2) 
+                : String(responseBody);
+            const bodySnippet = bodyString.length > bodyLimit 
+                ? bodyString.substring(0, bodyLimit) + '... [TRUNCATED]' 
+                : bodyString;
+            console.log(`🔹 Body:        ${bodySnippet}`);
+            
+            // Add to New Relic if available
+            if (typeof newrelic !== 'undefined' && newrelic.addCustomAttribute) {
+                newrelic.addCustomAttribute('response.body_snippet', bodySnippet);
+                newrelic.addCustomAttribute('request.method', req.method);
+                newrelic.addCustomAttribute('request.url', req.originalUrl);
+                newrelic.addCustomAttribute('response.status_code', res.statusCode);
+                newrelic.addCustomAttribute('response.duration_ms', duration);
+            }
+        }
+        
+        console.log(`${'='.repeat(70)}\n`);
     });
 
     next();
 });
+
+/**
+ * Helper function to get HTTP status text
+ */
+function getStatusText(statusCode) {
+    const statusTexts = {
+        200: 'OK',
+        201: 'Created',
+        204: 'No Content',
+        400: 'Bad Request',
+        401: 'Unauthorized',
+        403: 'Forbidden',
+        404: 'Not Found',
+        409: 'Conflict',
+        500: 'Internal Server Error',
+        502: 'Bad Gateway',
+        503: 'Service Unavailable'
+    };
+    return statusTexts[statusCode] || '';
+}
 
 
 /**

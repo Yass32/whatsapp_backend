@@ -33,6 +33,25 @@ const createCourse = async (request, response) => {
     // Extract course creation parameters from request body
     const { courseData, lessonsData, learnerIds, scheduleTime, startDate, frequency} = request.body;
 
+    // Validate required fields
+    if (!courseData || !lessonsData || !learnerIds) {
+        return response.status(400).json({
+            error: 'Course data, lessons data, and learner IDs are required'
+        });
+    }
+
+    if (!Array.isArray(lessonsData) || lessonsData.length === 0) {
+        return response.status(400).json({
+            error: 'Lessons data must be a non-empty array'
+        });
+    }
+
+    if (!Array.isArray(learnerIds) || learnerIds.length === 0) {
+        return response.status(400).json({
+            error: 'Learner IDs must be a non-empty array'
+        });
+    }
+
     console.log(request.body)
     
     try {
@@ -40,17 +59,18 @@ const createCourse = async (request, response) => {
         const createdCourse = await courseService.createCourse(
             courseData, // Course metadata
             lessonsData, // Lesson content and structure
-            learnerIds, // Learner phone numbers for enrollment
+            learnerIds, // Learner IDs for enrollment
             scheduleTime, // Delivery time
             startDate, // Course start date
             frequency // Delivery frequency
         );
         
         // Return success response with created course data
-        response.status(200).json(createdCourse);
+        response.status(201).json(createdCourse);
     } catch (error) {
-        // Return error response if course creation fails
-        response.status(500).json({error: error.message});
+        // Return appropriate error status
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        response.status(statusCode).json({error: error.message});
     }
 }
 
