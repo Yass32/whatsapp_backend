@@ -131,7 +131,7 @@ router.post("/cover", upload.single("file"), (request, response) => {
                 originalname: request.file.originalname,
                 mimetype: request.file.mimetype,
                 size: request.file.size,
-                path: request.file.path,
+                path: request.file.path, // path to the file
                 url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
@@ -164,7 +164,7 @@ router.post("/document", upload.single("file"), (request, response) => {
                 mimetype: request.file.mimetype,
                 size: request.file.size,
                 path: request.file.path,
-                url: `/uploads/course_media/${request.file.filename}` // URL to access the file
+                url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
