@@ -336,7 +336,6 @@ const getAdminGroups = async (adminId) => {
         const formattedGroups = groups.map(group => ({
             id: group.id,
             name: group.name,
-            //description: group.description,
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
             stats: {
@@ -349,10 +348,7 @@ const getAdminGroups = async (adminId) => {
                 surname: member.learner.surname,
                 email: member.learner.email,
                 number: member.learner.number,
-                //department: member.learner.department,
-                //company: member.learner.company,
                 active: member.learner.active,
-                //joinedAt: member.joinedAt
             })),
             courses: group.courses.map(course => ({
                 id: course.course.id,
@@ -360,7 +356,6 @@ const getAdminGroups = async (adminId) => {
                 description: course.course.description,
                 //totalLessons: course.course.totalLessons,
                 //totalQuizzes: course.course.totalQuizzes,
-                //assignedAt: course.assignedAt
             }))
         }));
 

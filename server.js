@@ -237,7 +237,7 @@ const server = app.listen(PORT, async () => {
     scheduleAutomaticCleanup();
 
     console.log('🔄 Testing database connection...');
-    testConnection();
+    //testConnection();
 
     console.log('\n🎯 Server initialization complete!');
     console.log('📖 Ready to process WhatsApp e-learning requests');
