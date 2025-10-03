@@ -151,11 +151,6 @@ const updateLearner = async (request, response) => {
     // Extract learner ID and update data
     const learnerId = Number(request.params.learnerId);
     const requestBody = request.body;
-
-    // If department is being updated, validate it
-    if (requestBody.department && !validDepartments.includes(requestBody.department)) {
-        requestBody.department = 'other';
-    }
     
     try {
         // Call service layer to update learner

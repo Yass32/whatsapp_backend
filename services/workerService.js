@@ -87,8 +87,10 @@ const lessonProcessor = async (job) => {
     // Send media if available
     if (lesson.media) {
       if (lesson.media.endsWith('.mp4')) {  
+        console.log("Video sent to", phoneNumber, "with media", lesson.media);
         await whatsappService.sendVideo(phoneNumber, lesson.media);
       } else {
+        console.log("Image sent to", phoneNumber, "with media", lesson.media);
         await whatsappService.sendImageMessage(phoneNumber, lesson.media);
       }
     }

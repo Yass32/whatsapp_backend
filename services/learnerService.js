@@ -294,7 +294,7 @@ const updateLearner = async (userId, requestBody) => {
         // Update learner in database
         const learner = await prisma.learner.update({
             where: { id: Number(userId) }, // Convert to number for safety
-            data: updatedData
+            data: updateData
         });
         
         // Check if learner was found and updated
@@ -411,6 +411,8 @@ const deleteAllLearners = async () => {
         // Use transaction to ensure all-or-nothing deletion
         return await prisma.$transaction([
             prisma.courseProgress.deleteMany({}), // Delete progress records first
+            prisma.groupMember.deleteMany({}), // Delete group memberships
+            prisma.lessonProgress.deleteMany({}), // Delete lesson progress
             prisma.enrollment.deleteMany({}), // Delete enrollment records second
             prisma.learner.deleteMany({}), // Delete learner records last
         ]);
