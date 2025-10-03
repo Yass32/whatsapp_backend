@@ -300,8 +300,6 @@ const getAdminGroups = async (adminId) => {
                                 surname: true,
                                 email: true,
                                 number: true,
-                                department: true,
-                                company: true,
                                 active: true
                             }
                         }
