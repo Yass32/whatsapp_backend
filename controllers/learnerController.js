@@ -8,9 +8,6 @@
 
 const learnerService = require('../services/learnerService');
 
-// Valid departments for learners
-const validDepartments = ['marketing', 'it', 'learning', 'other'];
-
 
 /**
  * Register one or more new learners (students).
@@ -43,18 +40,12 @@ const registerLearner = async (request, response) => {
             });
         }
 
-        // Validate department for each learner
-        const validatedLearners = learners.map(learner => ({
-            ...learner,
-            department: validDepartments.includes(learner.department) ? learner.department : 'other'
-        }));
-
-        // Call service layer to create new learners in bulk
-        await learnerService.createLearner(validatedLearners, Number(adminId));
+        // Create learners using the service
+        const result = await learnerService.createLearner(learners, adminId);
         
         // Return success response with the count of created learners
         response.status(201).json({
-            message: `Successfully created ${validatedLearners.length} learner(s)`,
+            message: `Successfully created ${learners.length} learner(s)`,
         });
     } catch (error) {
         // Return error response if registration fails

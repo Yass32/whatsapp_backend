@@ -30,6 +30,13 @@ model Admin {
   updatedAt DateTime          @updatedAt
 }
 
+enum Department {
+  marketing
+  it
+  learning
+  other
+}
+
 model Group {
   id          Int                    @id @default(autoincrement())
   name        String
@@ -76,8 +83,6 @@ model Learner {
   surname         String
   email           String             @unique
   number          String
-  department      Department         @default(other)
-  company         String 
   enrollments     Enrollment[]       // Course enrollments
   courseProgress  CourseProgress[]   // Overall course progress
   lessonProgress  LessonProgress[]   // Individual lesson progress
@@ -88,13 +93,6 @@ model Learner {
   updatedAt       DateTime           @updatedAt
 
   @@index([adminId])
-}
-
-enum Department {
-  marketing
-  it
-  learning
-  other
 }
 
 

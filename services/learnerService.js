@@ -265,7 +265,6 @@ const getAllLearners = async (adminId) => {
  * Updates learner information including:
  * - Personal information (name, surname)
  * - Contact information (email, phone number)
- * - Organizational information (department, company)
  * 
  * Note: The 'active' status cannot be updated through this function.
  * Use dedicated activation/deactivation endpoints instead.
@@ -276,38 +275,21 @@ const getAllLearners = async (adminId) => {
  * @param {string} [requestBody.surname] - Updated last name
  * @param {string} [requestBody.email] - Updated email address
  * @param {string} [requestBody.number] - Updated WhatsApp phone number
- * @param {string} [requestBody.department] - Updated department
- * @param {string} [requestBody.company] - Updated company name
  * @returns {Object} Updated learner object
  * @throws {Error} If learner not found or update fails
  */
 const updateLearner = async (userId, requestBody) => {
     try {
         // Extract allowed fields from request body
-        const {
-            active,
-            name,
-            surname,
-            email,
-            number,
-            department,
-            company
-        } = requestBody;
+        const { name, surname, email, number } = requestBody;
 
-        // Build update data object with only provided fields
-        const updatedData = {};
-        if (active !== undefined) updatedData.active = active;
-        if (name !== undefined) updatedData.name = name;
-        if (surname !== undefined) updatedData.surname = surname;
-        if (email !== undefined) updatedData.email = email;
-        if (number !== undefined) updatedData.number = number;
-        if (department !== undefined) updatedData.department = department;
-        if (company !== undefined) updatedData.company = company;
+        // Prepare update data with only provided fields
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (surname) updateData.surname = surname;
+        if (email) updateData.email = email;
+        if (number) updateData.number = number;
 
-        // Validate department if provided
-        if (department && !['marketing', 'it', 'learning', 'other'].includes(department)) {
-            throw new Error('Invalid department value');
-        }
         
         // Update learner in database
         const learner = await prisma.learner.update({

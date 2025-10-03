@@ -1,30 +1,32 @@
 /**
  * WhatsApp E-learning Platform Server
- * 
- * Main application server that orchestrates the WhatsApp-based learning platform.
- * 
- * Key Features:
+ * * Main application server that orchestrates the WhatsApp-based learning platform.
+ * * Key Features:
  * - RESTful API for course and user management
  * - WhatsApp Business API integration for messaging
  * - Webhook handling for real-time message processing
  * - Automated lesson delivery scheduling
  * - Database cleanup and maintenance
  * - Development tunnel via ngrok
- * 
- * Architecture:
+ * * Architecture:
  * - Express.js web framework
  * - Prisma ORM with database
  * - WhatsApp Business API integration
  * - JWT-based authentication
  * - Automated cron job scheduling
+ * - New Relic APM integration
  */
 
 // Load environment variables from .env file
 require('dotenv').config();
 
+// === NEW RELIC INTEGRATION (MUST BE THE FIRST REQUIRE) ===
+// NOTE: You must install 'newrelic' via npm, and the 'newrelic.js' file must exist in the root.
+const newrelic = require('newrelic'); 
+
 // Core dependencies
 const express = require('express');
-const morgan = require('morgan'); // Import the request logger
+// Removed: const morgan = require('morgan'); // Keeping user preference to avoid morgan
 //const axios = require('axios'); // HTTP client (imported but not directly used)
 const cors = require('cors'); // Cross-Origin Resource Sharing
 const helmet = require('helmet'); // Security middleware
@@ -72,13 +74,83 @@ app.use(cors());
  * 
  * to the console (stdout), which Render captures.
  */
-app.use(morgan('tiny')); // Request logging enabled
+//app.use(morgan('tiny')); // Request logging enabled
 
 /**
  * Body parser middleware
  * - express.json(): Parses incoming JSON requests
  */
 app.use(express.json());
+
+
+/**
+ * Custom Request/Response Attribute Middleware
+ * This middleware captures request and response bodies, timing, and status,
+ * logging essential transaction markers to the console and adding body snippets 
+ * as custom attributes to the New Relic transaction trace for deep debugging.
+ */
+app.use((req, res, next) => {
+    const start = Date.now();
+    // New Relic custom attribute strings have a 4KB limit, so we keep the 500 character limit.
+    const bodyLimit = 500; 
+    
+    // Log start of incoming request for local console visibility
+    console.log(`\n======================================================`);
+    console.log(`[REQ START] ${req.method} ${req.originalUrl}`);
+    
+    // Process and attribute the request body (only for non-GET/HEAD requests)
+    if (req.method !== 'GET' && req.method !== 'HEAD' && Object.keys(req.body).length > 0) {
+        const bodyString = JSON.stringify(req.body, null, 2);
+        const bodySnippet = bodyString.substring(0, bodyLimit) + (bodyString.length > bodyLimit ? '...' : '');
+
+        // Add to New Relic custom attribute
+        newrelic.addCustomAttribute('request.body_snippet', bodySnippet);
+    }
+
+    // --- Monkey-Patching Response to Capture Body ---
+    let responseBody = {};
+    const originalJson = res.json;
+    const originalSend = res.send;
+
+    // Capture response data when res.json is called
+    res.json = function(body) {
+        responseBody = body; // Capture the JSON object
+        return originalJson.apply(res, arguments); // Call the original method to send
+    };
+
+    // Capture response data when res.send is called
+    res.send = function(body) {
+        if (typeof body === 'string' || typeof body === 'object') {
+            try {
+                // Try to parse if it's a stringified JSON (common in express)
+                responseBody = JSON.parse(body); 
+            } catch (e) {
+                // Otherwise, capture the raw body
+                responseBody = body;
+            }
+        }
+        return originalSend.apply(res, arguments); // Call the original method to send
+    };
+
+    // Listen for the 'finish' event on the response object to log final details
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        
+        // Log the final status and time
+        console.log(`[REQ DONE] ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Time: ${duration}ms`);
+
+        // Attribute the response body to New Relic
+        const bodyString = JSON.stringify(responseBody, null, 2);
+        const bodySnippet = bodyString.substring(0, bodyLimit) + (bodyString.length > bodyLimit ? '...' : '');
+
+        newrelic.addCustomAttribute('response.body_snippet', bodySnippet);
+        
+        console.log(`======================================================\n`);
+    });
+
+    next();
+});
+
 
 /**
  * Static file serving middleware
@@ -148,13 +220,6 @@ app.use('/api/v1/upload', uploadRoutes);
  * 4. Log startup information and tunnel URL
  */
 const server = app.listen(PORT, async () => {
-  /*
-    const BASE_URL = process.env.NODE_ENV === 'production'
-        ? (process.env.BASE_URL || `http://localhost:${PORT}`)
-        : `http://localhost:${PORT}`;
-
-        */
-
     console.log(`🚀 WhatsApp E-learning Server is running on port ${PORT}`);
     console.log(`📚 API Base URL: https://whatsapp-backend-s4dm.onrender.com/api/v1`);
 
@@ -171,16 +236,8 @@ const server = app.listen(PORT, async () => {
     console.log('📅 Initializing automatic cleanup scheduler...');
     scheduleAutomaticCleanup();
 
-    // Optional database connection test (async and won't crash server)
-    try {
-        if (testConnection) {
-            await testConnection();
-            console.log('✅ Database connection verified');
-        }
-    } catch (error) {
-        console.warn('⚠️ Database connection test failed:', error.message);
-        console.log('💡 Server will continue without database connection');
-    }
+    console.log('🔄 Testing database connection...');
+    testConnection();
 
     console.log('\n🎯 Server initialization complete!');
     console.log('📖 Ready to process WhatsApp e-learning requests');
