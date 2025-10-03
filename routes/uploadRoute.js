@@ -66,9 +66,6 @@ const upload = multer({
 
 
 
-
-
-
 /**
  * POST /upload/single
  * Upload a single file
@@ -178,6 +175,11 @@ router.post("/document", upload.single("file"), (request, response) => {
 
 // Media (video/audio/image)
 router.post("/media", upload.single("file"), (request, response) => {
+    const extension = path.extname(request.file.originalname).toLowerCase();
+    if( extension === ".mp4") {
+        response.type("video/mp4");
+        console.log("Video sent to", request.file.path);
+    }
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -281,6 +283,45 @@ router.delete('/:filename', (request, response) => {
         response.status(200).json({
             success: true,
             message: 'File deleted successfully'
+        });
+    } catch (error) {
+        response.status(500).json({
+            success: false,
+            error: 'File deletion failed',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * DELETE /upload/all
+ * Delete all files
+ *
+ * Removes all files from the server.
+ * Use with caution - permanent deletion.
+ */
+router.delete('/all', (request, response) => {
+    try {
+        const ROOT = path.resolve(__dirname, ".."); // go up from /routes to project root
+        const uploadDirectory = path.join(ROOT, 'uploads', 'course_media');
+
+        // Check if upload directory exists
+        if (!fs.existsSync(uploadDirectory)) {
+            return response.status(404).json({
+                success: false,
+                error: 'Upload directory not found'
+            });
+        }
+
+        // Delete all files in the upload directory
+        fs.readdirSync(uploadDirectory).forEach(file => {
+            const filePath = path.join(uploadDirectory, file);
+            fs.unlinkSync(filePath);
+        });
+
+        response.status(200).json({
+            success: true,
+            message: 'All files deleted successfully'
         });
     } catch (error) {
         response.status(500).json({

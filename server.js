@@ -47,14 +47,6 @@ const { scheduleAutomaticCleanup } = require('./services/cleanupService');
 //const ngrok = require('@ngrok/ngrok'); // Development tunnel for webhook testing
 require('./services/workerService.js'); // Initialize and start the message queue worker
 
-// Optional database connection test (won't crash server if it fails)
-try {
-  const testConnection = require('./test-db.js');
-  // Test will run but won't crash server if it fails
-} catch (error) {
-  console.warn('⚠️ Database connection test file not found or has errors');
-} 
-
 // Server configuration
 const PORT = process.env.PORT || 3000;
 
@@ -220,8 +212,37 @@ function getStatusText(statusCode) {
  * - Serves test HTML page from public/ directory
  * - Files are saved to uploads/course_media/ so we serve from there
  */
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads/course_media', express.static(path.join(__dirname, 'uploads/course_media'))); // Serves uploaded course media files
+//app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+//app.use('/uploads/course_media', express.static(path.join(__dirname, 'uploads/course_media'))); // Serves uploaded course media files
+
+// Static file serving with proper Content-Type for videos
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".mp4")) {
+      res.setHeader("Content-Type", "video/mp4");
+    } else if (filePath.endsWith(".png")) {
+      res.setHeader("Content-Type", "image/png");
+    } else if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+      res.setHeader("Content-Type", "image/jpeg");
+    } else if (filePath.endsWith(".pdf")) {
+      res.setHeader("Content-Type", "application/pdf");
+    }
+  }
+}));
+
+app.use('/uploads/course_media', express.static(path.join(__dirname, 'uploads/course_media'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".mp4")) {
+      res.setHeader("Content-Type", "video/mp4");
+    } else if (filePath.endsWith(".png")) {
+      res.setHeader("Content-Type", "image/png");
+    } else if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+      res.setHeader("Content-Type", "image/jpeg");
+    } else if (filePath.endsWith(".pdf")) {
+      res.setHeader("Content-Type", "application/pdf");
+    }
+  }
+}));
 
 // === API ROUTES ===
 
