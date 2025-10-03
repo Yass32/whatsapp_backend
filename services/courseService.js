@@ -110,15 +110,16 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
     };
 
     // Reminder is 2 hours before the lesson
-    const reminderHour = (hour - 1 + 24) % 24;
-    let reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
-    // Reminder: one minute before each lesson: 5,11,17,23,29...
-    reminderCronExpression = '5-59/6 * * * *';  // TODO: Remove for production
-
+    const reminderHour = (hour - 2 + 24) % 24;  // Fixed: 2 hours before, not 1
+    const reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
+    
     // Lesson delivery cron
-    let lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
-    // Lesson: every 6 minutes at 0,6,12,18,24...
-    lessonCronExpression = "*/6 * * * *"; // TODO: Remove for production
+    const lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
+    
+    // === TESTING OVERRIDES (Comment out for production) ===
+    // Uncomment these lines ONLY for testing with faster intervals:
+    reminderCronExpression = '5-59/6 * * * *';  // Test: every 6 min starting at :05
+    lessonCronExpression = '*/6 * * * *';       // Test: every 6 min starting at :00
 
     // === CRON JOB SCHEDULING ===
     const reminderTask = cron.schedule(reminderCronExpression, async () => {
