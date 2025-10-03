@@ -61,7 +61,16 @@ const reminderProcessor = async (job) => {
 const lessonProcessor = async (job) => {
   const { phoneNumber, frequency, lesson, course, currentLessonIndex } = job.data;
   console.log(`Processing lesson job ${job.id} for ${phoneNumber}`);
-  console.log(`Lesson: ${lesson}`);
+  console.log(`Lesson media: ${lesson.media}`);
+  console.log(`Lesson document: ${lesson.document}`);
+  console.log(`Lesson quiz: ${lesson.quiz}`);
+  console.log(`Lesson externalLink: ${lesson.externalLink}`);
+  console.log(`Lesson title: ${lesson.title}`);
+  console.log(`Lesson content: ${lesson.content}`);
+  console.log(`Lesson id: ${lesson.id}`);
+  console.log(`Lesson courseId: ${lesson.courseId}`);
+  console.log(`Lesson frequency: ${lesson.frequency}`);
+  console.log(`Lesson frequency: ${lesson.frequency}`);
   try {
     // Send lesson title
     // await whatsappService.sendTextMessage(phoneNumber, `📚 ${frequency} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
