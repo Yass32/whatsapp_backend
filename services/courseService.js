@@ -111,10 +111,10 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
 
     // Reminder is 2 hours before the lesson
     const reminderHour = (hour - 2 + 24) % 24;  // Fixed: 2 hours before, not 1
-    const reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
+    let reminderCronExpression = generateCronExpression(reminderHour, minute, frequency, schedulingStartDate);
     
     // Lesson delivery cron
-    const lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
+    let lessonCronExpression = generateCronExpression(hour, minute, frequency, schedulingStartDate);
     
     // === TESTING OVERRIDES (Comment out for production) ===
     // Uncomment these lines ONLY for testing with faster intervals:
