@@ -95,9 +95,10 @@ app.use((req, res, next) => {
     console.log(`🔹 IP:          ${req.ip || req.connection.remoteAddress}`);
     
     // Log headers (excluding sensitive ones)
-    const safeHeaders = { ...req.headers };
-    delete safeHeaders.authorization;
-    delete safeHeaders.cookie;
+    //const safeHeaders = { ...req.headers };
+    //delete safeHeaders.authorization;
+    //delete safeHeaders.cookie;
+    const safeHeaders = { host: req.headers.host,'user-agent': req.headers['user-agent'], referer: req.headers.referer};
     console.log(`🔹 Headers:     ${JSON.stringify(safeHeaders, null, 2)}`);
     
     // Log query parameters if present
