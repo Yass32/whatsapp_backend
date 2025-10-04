@@ -70,7 +70,7 @@ const createLearner = async (learnersData, adminId) => {
         if (newLearnersData.length === 0) {
             return { 
                 success: false,
-                message: 'All learners already exist',
+                message: 'Learners already exist',
                 data: []
             };
         }
