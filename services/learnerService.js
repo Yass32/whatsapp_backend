@@ -68,33 +68,33 @@ const createLearner = async (learnersData, adminId) => {
 
         // Check if all learners already exist
         if (newLearnersData.length === 0) {
-            return { 
-                success: false,
-                message: 'Learners already exist',
-                data: []
-            };
+            throw new Error('Learners already exist');
         }
 
-        // Create new learners and get their data with IDs
-        const createdLearners = await Promise.all(newLearnersData.map(learner => 
-            prisma.learner.create({
-                data: learner,
-                select: { id: true }
-            })
-        ));
-
-        // Queue welcome messages only for the newly created learners
-        for (const learner of newLearnersData) {
-            console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
-            addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
-        }
+        // Create new learners and get their data
+        return await prisma.$transaction(async (tx) => {
+            const createdLearners = await Promise.all(
+                newLearnersData.map(learner => 
+                    tx.learner.create({
+                        data: learner,
+                        select: { id: true, email: true, name: true, number: true }
+                    })
+                )
+            );
         
-        return { 
-            success: true,  // Add success flag
-            count: createdLearners.length,  // Use created count instead of input count
-            message: 'Learners registered successfully',
-            data: createdLearners  // Return created learners with IDs
-        };
+            // Queue welcome messages only for the newly created learners
+            for (const learner of createdLearners) {
+                console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
+                await addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
+            }
+        
+            return { 
+                success: true,
+                count: createdLearners.length,
+                message: 'Learners registered successfully',
+                data: createdLearners
+            };
+        });
     } catch (error) {
         console.error("Learner creation error:", error); 
         throw new Error(`Failed to register learners: ${error.message}`);
