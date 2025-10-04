@@ -114,7 +114,7 @@ const addMembersToGroup = async (groupId, learnerIds) => {
         };
     } catch (error) {
         console.error('Add members error:', error);
-        throw new Error('Failed to add members to group');
+        throw new Error(`Failed to add members to group: ${error.message}`);
     }
 };
 
@@ -170,7 +170,7 @@ const removeMembersFromGroup = async (groupId, learnerIds) => {
         };
     } catch (error) {
         console.error('Remove members error:', error);
-        throw new Error('Failed to remove members from group');
+        throw new Error(`Failed to remove members from group: ${error.message}`);
     }
 };
 
@@ -183,6 +183,15 @@ const removeMembersFromGroup = async (groupId, learnerIds) => {
  */
 const assignCoursesToGroup = async (groupId, courseIds) => {
     try {
+        // Validate input
+        if (!groupId || isNaN(Number(groupId))) {
+            throw new Error('Valid group ID is required');
+        }
+        
+        if (!Array.isArray(courseIds) || courseIds.length === 0) {
+            throw new Error('Course IDs must be a non-empty array');
+        }
+
         // First, verify the group exists
         const group = await prisma.group.findUnique({
             where: { id: groupId }
@@ -205,7 +214,12 @@ const assignCoursesToGroup = async (groupId, courseIds) => {
         const newCourseIds = courseIds.filter(id => !existingCourseIds.has(id));
 
         if (newCourseIds.length === 0) {
-            return { count: 0 };
+            return { 
+                success: true,
+                count: 0,
+                message: 'All courses already assigned to group',
+                data: []
+            };
         }
 
         // Assign new courses in bulk
@@ -216,10 +230,15 @@ const assignCoursesToGroup = async (groupId, courseIds) => {
             }))
         });
 
-        return { count: result.count };
+        return { 
+            success: true,
+            count: result.count,
+            message: 'Courses assigned successfully',
+            data: result
+        };
     } catch (error) {
         console.error('Assign courses error:', error);
-        throw new Error('Failed to assign courses to group');
+        throw new Error(`Failed to assign courses to group: ${error.message}`);
     }
 };
 
@@ -232,6 +251,25 @@ const assignCoursesToGroup = async (groupId, courseIds) => {
  */
 const removeCoursesFromGroup = async (groupId, courseIds) => {
     try {
+        // Validate input
+        if (!groupId || isNaN(Number(groupId))) {
+            throw new Error('Valid group ID is required');
+        }
+        
+        if (!Array.isArray(courseIds) || courseIds.length === 0) {
+            throw new Error('Course IDs must be a non-empty array');
+        }
+
+        // Verify group exists
+        const group = await prisma.group.findUnique({
+            where: { id: groupId },
+            select: { id: true }
+        });
+
+        if (!group) {
+            throw new Error('Group not found');
+        }
+
         const result = await prisma.groupCourse.deleteMany({
             where: {
                 groupId,
@@ -239,10 +277,24 @@ const removeCoursesFromGroup = async (groupId, courseIds) => {
             }
         });
 
-        return { count: result.count };
+        if (result.count === 0) {
+            return { 
+                success: true,
+                count: 0,
+                message: 'No course assignments found to remove',
+                data: result
+            };
+        }
+
+        return { 
+            success: true,
+            count: result.count,
+            message: 'Course assignments removed successfully',
+            data: result
+        };
     } catch (error) {
         console.error('Remove courses error:', error);
-        throw new Error('Failed to remove courses from group');
+        throw new Error(`Failed to remove courses from group: ${error.message}`);
     }
 };
 
@@ -422,15 +474,31 @@ const getAdminGroups = async (adminId) => {
  */
 const updateGroup = async (groupId, updateData) => {
     try {
+        // Validate input
+        if (!groupId || isNaN(Number(groupId))) {
+            throw new Error('Valid group ID is required');
+        }
+
+        if (!updateData || Object.keys(updateData).length === 0) {
+            throw new Error('Update data is required');
+        }
+
         const group = await prisma.group.update({
             where: { id: groupId },
             data: updateData
         });
 
-        return group;
+        return {
+            success: true,
+            message: 'Group updated successfully',
+            data: group
+        };
     } catch (error) {
         console.error('Update group error:', error);
-        throw new Error('Failed to update group');
+        if (error.code === 'P2025') {
+            throw new Error('Group not found');
+        }
+        throw new Error(`Failed to update group: ${error.message}`);
     }
 };
 
