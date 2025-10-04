@@ -44,9 +44,7 @@ const registerLearner = async (request, response) => {
         const result = await learnerService.createLearner(learners, adminId);
         
         // Return success response with the count of created learners
-        response.status(201).json({
-            message: `Successfully created ${learners.length} learner(s)`,
-        });
+        response.status(201).json(result);
     } catch (error) {
         // Return error response if registration fails
         response.status(500).json({ error: error.message });

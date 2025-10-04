@@ -37,6 +37,12 @@ const createLearner = async (learnersData, adminId) => {
             throw new Error('Valid admin ID is required');
         }
 
+        for (const learner of learnersData) {
+            if (!learner.email || !learner.number || !learner.name) {
+                throw new Error('Each learner must have email, number, and name');
+            }
+        }
+
         // Verify admin and group exist
         const admin = await prisma.admin.findUnique({
             where: { id: adminId },
@@ -60,24 +66,22 @@ const createLearner = async (learnersData, adminId) => {
         // Filter out existing learners
         const newLearnersData = learnersData.filter(learner => !existingEmails.has(learner.email));
 
-        // Create new learners and get their IDs
-        let newLearnerIds = [];
-        if (newLearnersData.length > 0) {
-            // Create new learners and get their data with IDs
-            const createdLearners = await Promise.all(newLearnersData.map(learner => 
-                prisma.learner.create({
-                    data: learner,
-                    select: { id: true }
-                })
-            ));
-            newLearnerIds = createdLearners.map(learner => learner.id);
+        // Check if all learners already exist
+        if (newLearnersData.length === 0) {
+            return { 
+                success: false,
+                message: 'All learners already exist',
+                data: []
+            };
         }
 
-        // Get existing learner IDs
-        const existingLearnerIds = existingLearners.map(learner => learner.id);
-
-        // Combine all learner IDs
-        const allLearnerIds = [...newLearnerIds, ...existingLearnerIds];
+        // Create new learners and get their data with IDs
+        const createdLearners = await Promise.all(newLearnersData.map(learner => 
+            prisma.learner.create({
+                data: learner,
+                select: { id: true }
+            })
+        ));
 
         // Queue welcome messages only for the newly created learners
         for (const learner of newLearnersData) {
@@ -86,9 +90,10 @@ const createLearner = async (learnersData, adminId) => {
         }
         
         return { 
-            count: newLearnersData.length,
+            success: true,  // Add success flag
+            count: createdLearners.length,  // Use created count instead of input count
             message: 'Learners registered successfully',
-            data: newLearnersData
+            data: createdLearners  // Return created learners with IDs
         };
     } catch (error) {
         console.error("Learner creation error:", error); 
