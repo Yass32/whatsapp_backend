@@ -545,6 +545,11 @@ const deleteAllCourses = async () => {
  */
 const getAdminCourses = async (adminId) => {
   try {
+    // Validate input
+    if (!adminId || isNaN(Number(adminId))) {
+      throw new Error('Valid admin ID is required');
+    }
+
     // First, get all courses with their lessons
     const courses = await prisma.course.findMany({
       where: {
@@ -578,12 +583,15 @@ const getAdminCourses = async (adminId) => {
     // Calculate average progress for each course
     const coursesWithProgress = courses.map(course => {
       const totalEnrollments = course._count.enrollments;
-      const totalProgress = course.courseProgress.reduce(
-        (sum, progress) => sum + (progress.progressPercent || 0), 0
-      );
-      const averageProgress = course.courseProgress.length > 0 
-        ? Math.round((totalProgress / course.courseProgress.length) * 100) / 100 // Round to 2 decimal places
-        : 0;
+      
+      // Handle case where there's no progress data yet
+      let averageProgress = 0;
+      if (course.courseProgress && course.courseProgress.length > 0) {
+        const totalProgress = course.courseProgress.reduce(
+          (sum, progress) => sum + (progress.progressPercent || 0), 0
+        );
+        averageProgress = Math.round((totalProgress / course.courseProgress.length) * 100) / 100;
+      }
 
       // Remove internal fields from the response
       const { courseProgress, _count, ...courseData } = course;
@@ -616,7 +624,7 @@ const getAdminCourses = async (adminId) => {
     };
   } catch (error) {
     console.error('Error fetching admin courses:', error);
-    throw new Error('Failed to retrieve admin courses');
+    throw new Error(`Failed to retrieve admin courses: ${error.message}`);
   }
 };
 
