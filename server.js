@@ -20,10 +20,6 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
-// === NEW RELIC INTEGRATION (MUST BE THE FIRST REQUIRE) ===
-// NOTE: You must install 'newrelic' via npm, and the 'newrelic.js' file must exist in the root.
-const newrelic = require('newrelic'); 
-
 // Core dependencies
 const express = require('express');
 // Removed: const morgan = require('morgan'); // Keeping user preference to avoid morgan
@@ -83,7 +79,7 @@ app.use(express.json());
  */
 app.use((req, res, next) => {
     const start = Date.now();
-    const bodyLimit = 1000; // Character limit for body logging
+    const bodyLimit = 1200; // Character limit for body logging
     
     // Log incoming request details
     console.log(`\n${'='.repeat(70)}`);
@@ -113,11 +109,6 @@ app.use((req, res, next) => {
             ? bodyString.substring(0, bodyLimit) + '... [TRUNCATED]' 
             : bodyString;
         console.log(`🔹 Body:        ${bodySnippet}`);
-        
-        // Add to New Relic if available
-        if (typeof newrelic !== 'undefined' && newrelic.addCustomAttribute) {
-            newrelic.addCustomAttribute('request.body_snippet', bodySnippet);
-        }
     }
     
     // Capture response body
@@ -169,15 +160,6 @@ app.use((req, res, next) => {
                 ? bodyString.substring(0, bodyLimit) + '... [TRUNCATED]' 
                 : bodyString;
             console.log(`🔹 Body:        ${bodySnippet}`);
-            
-            // Add to New Relic if available
-            if (typeof newrelic !== 'undefined' && newrelic.addCustomAttribute) {
-                newrelic.addCustomAttribute('response.body_snippet', bodySnippet);
-                newrelic.addCustomAttribute('request.method', req.method);
-                newrelic.addCustomAttribute('request.url', req.originalUrl);
-                newrelic.addCustomAttribute('response.status_code', res.statusCode);
-                newrelic.addCustomAttribute('response.duration_ms', duration);
-            }
         }
         
         console.log(`${'='.repeat(70)}\n`);
