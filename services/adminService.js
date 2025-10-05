@@ -37,11 +37,15 @@ const prisma = new PrismaClient().$extends(withAccelerate())
 const registerNewUser = async (userData) => {
     // Destructure user data from request
     const {name, surname, password, email, number, department, company} = userData;
+
+    console.log(department);
     
-    // Validate department against schema enum, default to 'Other' if invalid
+    // Validate department against schema enum, default to 'Diğer' if invalid
     const validDepartments = ['Akademi', 'Eğitim_Gelişim', 'Pazarlama', 'İK', 'Diğer'];
     const validatedDepartment = department && validDepartments.includes(department) 
         ? department : 'Diğer';
+
+    console.log(validatedDepartment);
 
     // Log a warning if department was invalid
     if (department && !validDepartments.includes(department)) {
