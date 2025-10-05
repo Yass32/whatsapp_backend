@@ -39,13 +39,13 @@ const registerNewUser = async (userData) => {
     const {name, surname, password, email, number, department, company} = userData;
     
     // Validate department against schema enum, default to 'Other' if invalid
-    const validDepartments = ['Akademi', 'Eğitim', 'Gelişim', 'Other'];
+    const validDepartments = ['Akademi', 'Eğitim_Gelişim', 'Pazarlama', 'İK', 'Diğer'];
     const validatedDepartment = department && validDepartments.includes(department) 
-        ? department : 'Other';
+        ? department : 'Diğer';
 
     // Log a warning if department was invalid
     if (department && !validDepartments.includes(department)) {
-        console.warn(`Invalid department '${department}'. Defaulting to 'Other'`);
+        console.warn(`Invalid department '${department}'. Defaulting to 'Diğer'`);
     }
     
     try {

@@ -21,7 +21,7 @@ model Admin {
   password  String
   email     String            @unique
   number    String
-  department Department       @default(Other)
+  department Department       @default(Diğer)
   company   String 
   courses   Course[]
   groups    Group[]           // Groups created by this admin
@@ -32,9 +32,10 @@ model Admin {
 
 enum Department {
   Akademi
-  Eğitim 
-  Gelişim
-  Other
+  Eğitim_Gelişim
+  Pazarlama
+  İK
+  Diğer
 }
 
 model Group {
