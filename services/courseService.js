@@ -453,8 +453,16 @@ const updateCourseProgress = async (phoneNumber, courseId, lessonId, quizReply =
             completedAt: new Date() // Set completion timestamp
           }
         });
-      } else {
-        // Dont update score and inform user of correct answer
+      } else { //User's answer is wrong
+        // Update quiz score by adding percentage points
+        lessonProgress = await prisma.lessonProgress.update({
+          where: { id: lessonProgress.id },
+          data: {
+            quizScore: 0, // Lesson quiz score is 0% since each lesson has at most 1 quiz
+            isCompleted: true, // Mark lesson as completed
+            completedAt: new Date() // Set completion timestamp
+          }
+        });
         correct = quiz.correctOption; // Return correct answer for confirmation
       }
       // Store learner reply to quiz

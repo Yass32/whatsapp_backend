@@ -38,6 +38,16 @@ const registerNewUser = async (userData) => {
     // Destructure user data from request
     const {name, surname, password, email, number, department, company} = userData;
     
+    // Validate department against schema enum, default to 'Other' if invalid
+    const validDepartments = ['Akademi', 'Eğitim', 'Gelişim', 'Other'];
+    const validatedDepartment = department && validDepartments.includes(department) 
+        ? department : 'Other';
+
+    // Log a warning if department was invalid
+    if (department && !validDepartments.includes(department)) {
+        console.warn(`Invalid department '${department}'. Defaulting to 'Other'`);
+    }
+    
     try {
         // Hash the password with salt rounds of 10 for security
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -50,7 +60,7 @@ const registerNewUser = async (userData) => {
                 password: hashedPassword, // Store hashed password
                 email,
                 number,
-                department,
+                department: validatedDepartment, // Use validated department
                 company,
             }
         });
@@ -78,30 +88,48 @@ const registerNewUser = async (userData) => {
 const loginUser = async (userData) => {
     const {email, password} = userData;
     
+    // Validate input
+    if (!email || !password) {
+        throw new Error('Email and password are required');
+    }
+    
     try {
-        // Find admin user by email address
+        // Find admin user by email address, only select necessary fields
         const user = await prisma.admin.findUnique({
-            where: {email}
+            where: {email},
+            select: {
+                name: true,
+                surname: true,
+                email: true,
+                number: true,
+                password: true // Needed for comparison
+            }
         });
         
-        // Check if user exists
+        // Check if user exists and password is correct in one step
         if (!user) {
-            console.error("Invalid email: ", email);
-            throw new Error('Invalid email');
+            console.error("Login failed: Invalid credentials");
+            throw new Error('Invalid email or password'); // Don't reveal which is wrong
         }
 
         // Compare provided password with stored hash
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
-            console.error("Invalid password: ", password);
-            throw new Error('Invalid password');
+            console.error("Login failed: Invalid credentials");
+            throw new Error('Invalid email or password'); // Don't reveal which is wrong
         }
 
-        console.log("Login successful for user: ", user);
-        return {user, message: "Login successful"}
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
+        
+        console.log(`Login successful for user: ${user.email}`);
+        return {
+            success: true,
+            message: "Login successful",
+            data: userWithoutPassword
+        };
 
         /*
-
         // Generate JWT tokens for authenticated user
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
@@ -109,8 +137,8 @@ const loginUser = async (userData) => {
         return { accessToken, refreshToken }; // Return both tokens
         */
     } catch (error) {
-        console.error("Login error:", err.message); 
-        throw new Error('Failed to login user'); // Generic error for security
+        console.error("Login error:", error.message); 
+        throw new Error(error.message || 'Failed to login user');
     }
 }
 
