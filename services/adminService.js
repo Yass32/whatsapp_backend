@@ -111,15 +111,12 @@ const loginUser = async (userData) => {
             console.error("Login failed: Invalid credentials");
             throw new Error('Invalid email or password'); // Don't reveal which is wrong
         }
-
-        // Remove password from response
-        const { password: _, ...userWithoutPassword } = user;
         
         console.log(`Login successful for user: ${user.email}`);
         return {
             success: true,
             message: "Login successful",
-            data: userWithoutPassword
+            user
         };
 
         /*
