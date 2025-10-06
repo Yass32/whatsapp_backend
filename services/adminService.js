@@ -39,7 +39,7 @@ const registerNewUser = async (userData) => {
     const {name, surname, password, email, number, department, company} = userData;
     
     // Validate department against schema enum, default to 'Diğer' if invalid
-    const validDepartments = ['Akademi', 'Eğitim_Gelişim', 'Pazarlama', 'İK', 'Diğer'];
+    const validDepartments = ['Akademi', 'Eğitim_Gelişim', 'Eğitim_Teknolojileri', 'Eğitim', 'Pazarlama', 'İK', 'Diğer'];
     const validatedDepartment = department && validDepartments.includes(department) 
         ? department : 'Diğer';
 

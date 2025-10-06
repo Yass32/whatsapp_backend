@@ -33,6 +33,8 @@ model Admin {
 enum Department {
   Akademi
   Eğitim_Gelişim
+  Eğitim_Teknolojileri
+  Eğitim
   Pazarlama
   İK
   Diğer
