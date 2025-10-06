@@ -98,6 +98,7 @@ const loginUser = async (userData) => {
         const user = await prisma.admin.findUnique({
             where: {email},
             select: {
+                id: true,
                 name: true,
                 surname: true,
                 email: true,
