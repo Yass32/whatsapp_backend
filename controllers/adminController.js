@@ -10,8 +10,6 @@
 
 const adminService = require('../services/adminService');
 
-// Valid departments for users
-const validDepartments = ['marketing', 'it', 'learning', 'other'];
 
 /**
  * Register a new admin user
@@ -45,11 +43,6 @@ const registerUser = async (request, response) => {
             });
         }
         
-        // If department is provided and not valid, set to 'other'
-        if (userData.department && !validDepartments.includes(userData.department)) {
-            userData.department = 'other';
-        }
-
         // Call service layer to create new admin user
         const newUser = await adminService.registerNewUser(userData);
         
