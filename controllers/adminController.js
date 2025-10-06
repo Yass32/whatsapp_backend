@@ -12,46 +12,106 @@ const adminService = require('../services/adminService');
 
 
 /**
- * Register a new admin user
+ * Register one or more admin users
  * 
  * Handles POST requests to create new admin accounts with:
  * - Password hashing for security
  * - User profile information
  * - Company and department details
+ * - Support for both single user and bulk registration
  * 
  * @param {Object} request - Express request object
- * @param {Object} request.body - User registration data
+ * @param {Object|Array} request.body - Single user object or array of user objects
  * @param {Object} response - Express response object
- * @returns {void} Sends JSON response with created user or error
+ * @returns {void} Sends JSON response with created users or error details
  */
 const registerUser = async (request, response) => {
     try {
-        const userData = request.body;
+        let userDataArray = request.body;
         
-        // Validate required fields
-        if (!userData.email || !userData.password || !userData.name) {
+        // Support both single user and array of users
+        if (!Array.isArray(userDataArray)) {
+            userDataArray = [userDataArray];
+        }
+        
+        // Validate that we have at least one user
+        if (userDataArray.length === 0) {
             return response.status(400).json({
-                error: 'Email, password, and name are required'
+                error: 'No user data provided'
             });
         }
+        
+        const results = [];
+        const errors = [];
+        
+        // Process each user
+        for (let i = 0; i < userDataArray.length; i++) {
+            const userData = userDataArray[i];
+            
+            try {
+                // Validate required fields
+                if (!userData.email || !userData.password || !userData.name) {
+                    errors.push({
+                        index: i,
+                        error: 'Email, password, and name are required'
+                    });
+                    continue;
+                }
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(userData.email)) {
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(userData.email)) {
+                    errors.push({
+                        index: i,
+                        error: 'Invalid email format'
+                    });
+                    continue;
+                }
+                
+                // Call service layer to create new admin user
+                const newUser = await adminService.registerNewUser(userData);
+                results.push({
+                    index: i,
+                    success: true,
+                    user: newUser
+                });
+                
+            } catch (error) {
+                // Handle individual user errors
+                const statusCode = error.message.includes('already exists') || error.message.includes('already in use') ? 409 : 500;
+                errors.push({
+                    index: i,
+                    error: error.message,
+                    statusCode: statusCode
+                });
+            }
+        }
+        
+        // Return appropriate response based on results
+        if (results.length === 0) {
+            // All users failed
             return response.status(400).json({
-                error: 'Invalid email format'
+                error: 'All user registrations failed',
+                details: errors
+            });
+        } else if (errors.length > 0) {
+            // Partial success
+            return response.status(207).json({
+                message: `Successfully registered ${results.length} out of ${userDataArray.length} users`,
+                successful: results,
+                failed: errors
+            });
+        } else {
+            // All users succeeded
+            return response.status(201).json({
+                message: `Successfully registered ${results.length} users`,
+                users: results.map(r => r.user)
             });
         }
         
-        // Call service layer to create new admin user
-        const newUser = await adminService.registerNewUser(userData);
-        
-        // Return success response with created user data
-        response.status(201).json(newUser);
     } catch (error) {
-        // Return appropriate error status
-        const statusCode = error.message.includes('already exists') || error.message.includes('already in use') ? 409 : 500;
-        response.status(statusCode).json({error: error.message});
+        // Handle unexpected server errors
+        response.status(500).json({error: 'Internal server error'});
     }
 }
 
@@ -105,10 +165,10 @@ const loginUser = async (request, response) => {
         }
 
         // Call service layer to authenticate user
-        const user = await adminService.loginUser(request.body);
+        const loginResult = await adminService.loginUser(request.body);
         
         // Return success response with logged in user data
-        response.status(200).json(user);
+        response.status(200).json(loginResult);
 
 
     } catch (error) {
@@ -307,11 +367,6 @@ const updateUser = async (request, response) => {
     // Extract user ID and update data
     const adminId = Number(request.params.adminId);
     const requestBody = request.body;
-
-    // If department is being updated, validate it
-    if (requestBody.department && !validDepartments.includes(requestBody.department)) {
-        requestBody.department = 'other';
-    }
     
     try {
         // Call service layer to update user
