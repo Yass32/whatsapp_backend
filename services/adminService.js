@@ -97,14 +97,6 @@ const loginUser = async (userData) => {
         // Find admin user by email address, only select necessary fields
         const user = await prisma.admin.findUnique({
             where: {email},
-            select: {
-                id: true,
-                name: true,
-                surname: true,
-                email: true,
-                number: true,
-                password: true // Needed for comparison
-            }
         });
         
         // Check if user exists and password is correct in one step
