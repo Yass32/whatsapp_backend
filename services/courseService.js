@@ -118,8 +118,8 @@ const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startD
     
     // === TESTING OVERRIDES (Comment out for production) ===
     // Uncomment these lines ONLY for testing with faster intervals:
-    reminderCronExpression = '5-59/6 * * * *';  // Test: every 6 min starting at :05
-    lessonCronExpression = '*/6 * * * *';       // Test: every 6 min starting at :00
+    //reminderCronExpression = '5-59/6 * * * *';  // Test: every 6 min starting at :05
+    //lessonCronExpression = '*/6 * * * *';       // Test: every 6 min starting at :00
 
     // === CRON JOB SCHEDULING ===
     const reminderTask = cron.schedule(reminderCronExpression, async () => {
