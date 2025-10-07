@@ -50,7 +50,7 @@ const registerNewUser = async (userData) => {
     
     try {
         // Hash the password with salt rounds of 10 for security
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 8);
         
         // Create new admin user in database
         const newAdmin = await prisma.admin.create({
