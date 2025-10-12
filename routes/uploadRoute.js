@@ -119,6 +119,13 @@ router.post("/cover", upload.single("file"), (request, response) => {
             });
         }
 
+        if(request.file.size > 5 * 1024 * 1024) { // Whatsapp cover images 5MB limit
+            return response.status(400).json({
+                success: false,
+                error: 'Image size exceeds limit'
+            });
+        }
+
         // File uploaded successfully
         response.status(200).json({
             success: true,
@@ -148,6 +155,13 @@ router.post("/document", upload.single("file"), (request, response) => {
             return response.status(400).json({
                 success: false,
                 error: 'No document uploaded'
+            });
+        }
+
+        if(request.file.size > 30 * 1024 * 1024) { // Whatsapp documents 100MB limit
+            return response.status(400).json({
+                success: false,
+                error: 'Document size exceeds limit'
             });
         }
 
@@ -185,6 +199,13 @@ router.post("/media", upload.single("file"), (request, response) => {
             return response.status(400).json({
                 success: false,
                 error: 'No media file uploaded'
+            });
+        }
+
+        if(request.file.size > 16 * 1024 * 1024) {   // Whatsapp videos 16MB limit
+            return response.status(400).json({
+                success: false,
+                error: 'Media file size exceeds limit'
             });
         }
 
