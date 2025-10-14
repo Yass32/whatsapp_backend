@@ -22,8 +22,6 @@ require('dotenv').config();
 
 // Core dependencies
 const express = require('express');
-// Removed: const morgan = require('morgan'); // Keeping user preference to avoid morgan
-//const axios = require('axios'); // HTTP client (imported but not directly used)
 const cors = require('cors'); // Cross-Origin Resource Sharing
 const helmet = require('helmet'); // Security middleware
 const path = require('path'); // For file path operations

@@ -1,23 +1,25 @@
 # WhatsApp E-Learning Backend
 
 ## Overview
-This project is a backend API for a WhatsApp-based e-learning platform. It enables course creation, lesson scheduling, learner management, and automated WhatsApp messaging for educational content delivery. Built with Node.js, Express, and Prisma ORM, it supports admin and learner roles, JWT authentication, and integration with WhatsApp Business API.
-
----
+This project is a comprehensive backend API for a WhatsApp-based e-learning platform. It enables course creation, lesson scheduling, learner management, and automated WhatsApp messaging for educational content delivery. Built with Node.js, Express.js, and Prisma ORM, it supports admin and learner roles, JWT authentication, and seamless integration with WhatsApp Business API.
 
 ## Features
-- **RESTful API**: A complete API for managing courses, lessons, users, and learners.
-- **Course Management**: Create courses with lessons, quizzes, and automated delivery schedules.
-- **User Management**: Register, authenticate, and manage admin users and learners.
-- **WhatsApp Messaging**: Send text, image, template, and interactive messages to learners.
-- **Automated Lesson Scheduling**: Automate lesson delivery using cron jobs and queues.
-- **Webhook Integration**: Handle WhatsApp webhook events for message status and replies.
-- **Progress Tracking**: Track learner progress and quiz results.
-- **Scheduled Cleanup**: A cron job for regular database maintenance and cleanup of old records.
-- **Database Management** : Utilizes Prisma ORM for efficient and type-safe database interactions.
-- **Background Job Processing**: Implements a message queue using BullMQ and Redis for handling asynchronous tasks like sending messages.
-- **Security**: Uses helmet for setting security-related HTTP headers and cors for managing cross-origin requests.
-- **Authentication** : Employs JWT-based authentication for securing API endpoints.
+- **RESTful API**: Complete API for managing courses, lessons, users, and learners
+- **Course Management**: Create courses with lessons, quizzes, and automated delivery schedules
+- **User Management**: Register, authenticate, and manage admin users and learners
+- **WhatsApp Messaging**: Send text, image, template, and interactive messages to learners
+- **Automated Lesson Scheduling**: Automate lesson delivery using cron jobs and Redis-backed queues
+- **Webhook Integration**: Handle WhatsApp webhook events for message status and replies
+- **Progress Tracking**: Track learner progress and quiz results with detailed analytics
+- **Scheduled Cleanup**: Automated database maintenance and cleanup of old records
+- **Database Management**: Utilizes Prisma ORM for efficient and type-safe database interactions
+- **Background Job Processing**: Implements message queue using BullMQ and Redis for asynchronous tasks
+- **Security**: Uses Helmet for security headers and CORS for cross-origin requests
+- **Authentication**: JWT-based authentication with access and refresh tokens
+- **File Upload**: Support for course media (images, videos, documents) with Multer
+
+## Documentation
+For detailed code explanations, architecture overview, and step-by-step guides, see [DOCUMENTATION.md](./DOCUMENTATION.md)
 
 ---
 
@@ -36,37 +38,71 @@ server.js            # Express app entry point
 
 ## API Endpoints
 
-### Course Routes (`/courses`)
-- `POST /create-course`: Create a new course with lessons, quizzes, and enrollments.
-- `DELETE /all`: Delete all courses and related data.
+### Admin Routes (`/api/v1/admin`)
+- `POST /register`: Register a new admin user
+- `POST /login`: Authenticate admin user and issue JWT tokens
+- `POST /refresh-token`: Refresh access token using refresh token (cookie)
+- `POST /logout`: Log out admin user
+- `GET /all`: Get all admin users
+- `GET /:adminId`: Get single admin user by ID
+- `PUT /:adminId`: Update admin user information
+- `DELETE /:adminId`: Delete admin user
+- `DELETE /all`: Delete all admins and related data
 
-### User Routes (`/users`)
-- `POST /register`: Register a new admin user.
-- `POST /login`: Authenticate admin user and issue JWT tokens.
-- `POST /refresh-token`: Refresh access token using refresh token (cookie).
-- `POST /logout`: Log out admin user.
-- `GET /getusers`: Get all admin users.
-- `GET /:id`: Get single admin user by ID.
-- `PUT /:id`: Update admin user information.
-- `DELETE /:id`: Delete admin user.
-- `POST /create-learner`: Register one or more learners (bulk).
-- `GET /get-all-learners`: Get all learners.
-- `GET /get-learner/:id`: Get single learner by ID.
-- `PUT /update-learner/:id`: Update learner information.
-- `DELETE /delete-learner/:id`: Delete single learner.
-- `DELETE /delete-all-learners`: Delete all learners and related data.
+### Learner Routes (`/api/v1/learners`)
+- `POST /`: Register one or more learners (bulk)
+- `GET /:adminId`: Get all learners for an admin
+- `GET /:learnerId/details`: Get single learner by ID
+- `PUT /:learnerId`: Update learner information
+- `DELETE /:learnerId`: Delete single learner
+- `DELETE /all`: Delete all learners and related data
+- `GET /:adminId/insights`: Get comprehensive learner analytics
 
-### WhatsApp Routes (`/whatsapp`)
-- `POST /send-text`: Send plain text message.
-- `POST /send-template`: Send template message.
-- `POST /send-image`: Send image message.
-- `POST /send-interactive`: Send interactive message with buttons.
+### Course Routes (`/api/v1/courses`)
+- `POST /`: Create a new course with lessons, quizzes, and enrollments
+- `GET /:adminId`: Get all courses for an admin
+- `GET /id/:courseId`: Get single course by ID with lessons and quizzes
+- `PUT /:courseId`: Update course information
+- `PUT /:courseId/publish`: Publish a course
+- `PUT /:courseId/archive`: Archive a course
+- `POST /:courseId/unarchive`: Unarchive a course (create new copy)
+- `DELETE /:courseId`: Delete a specific course
+- `DELETE /all`: Delete all courses and related data
 
-### Webhook Routes (`/webhook`)
-- `GET /webhook`: Verify WhatsApp webhook subscription.
-- `GET /test`: Health check endpoint.
-- `POST /webhook`: Handle incoming webhook events.
-- `DELETE /all-messages`: Delete all messages and contexts.
+### Group Routes (`/api/v1/groups`)
+- `POST /`: Create a new group
+- `GET /:adminId`: Get all groups for an admin
+- `GET /:groupId`: Get group details with members and courses
+- `PUT /:groupId`: Update group information
+- `DELETE /:groupId`: Delete a group
+- `POST /:groupId/members`: Add members to a group
+- `DELETE /:groupId/members`: Remove members from a group
+- `POST /:groupId/courses`: Assign courses to a group
+- `DELETE /:groupId/courses`: Remove courses from a group
+
+### WhatsApp Routes (`/api/v1/whatsapp`)
+- `POST /send-text`: Send plain text message
+- `POST /send-template`: Send template message
+- `POST /send-image`: Send image message
+- `POST /send-document`: Send document message
+- `POST /send-video`: Send video message
+- `POST /send-interactive`: Send interactive message with buttons
+- `POST /send-interactive-list`: Send interactive list message
+
+### Webhook Routes (`/api/v1`)
+- `GET /webhook`: Verify WhatsApp webhook subscription
+- `POST /webhook`: Handle incoming webhook events
+- `DELETE /all-messages`: Delete all messages and contexts
+
+### Upload Routes (`/api/v1/upload`)
+- `POST /single`: Upload a single file
+- `POST /multiple`: Upload multiple files
+- `POST /cover`: Upload course cover image
+- `POST /document`: Upload document
+- `POST /media`: Upload media (video/image)
+- `GET /:filename`: Serve uploaded file
+- `DELETE /:filename`: Delete specific file
+- `DELETE /all`: Delete all files
 
 ---
 
@@ -230,12 +266,20 @@ server.js            # Express app entry point
 ---
 
 ## Environment Variables
-- `JWT_SECRET`: Secret for access tokens
-- `JWT_REFRESH_SECRET`: Secret for refresh tokens
-- `DATABASE_URL`: Prisma database connection string
-- `REDIS_URL`: Redis connection string
-- `WHATSAPP_API_URL`: WhatsApp Business API endpoint
-- `WHATSAPP_API_TOKEN`: WhatsApp API token
+- `JWT_SECRET`: Secret for signing access tokens
+- `JWT_REFRESH_SECRET`: Secret for signing refresh tokens
+- `DATABASE_URL`: PostgreSQL connection string for Prisma
+- `REDIS_HOST`: Redis server hostname
+- `REDIS_PORT`: Redis server port
+- `REDIS_USERNAME`: Redis username (for Redis 6.0+)
+- `REDIS_PASSWORD`: Redis password
+- `WHATSAPP_API_URL`: WhatsApp Business API base URL (e.g., https://graph.facebook.com/v17.0)
+- `WHATSAPP_PHONE_NUMBER_ID`: WhatsApp Business phone number ID
+- `WHATSAPP_ACCESS_TOKEN`: WhatsApp API access token
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`: Token for webhook verification
+
+## API Base URL
+All API endpoints are prefixed with: `https://whatsapp-backend-s4dm.onrender.com/api/v1`
 
 ---
 
