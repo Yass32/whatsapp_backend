@@ -112,7 +112,7 @@ const loginUser = async (userData) => {
             throw new Error('Invalid email or password'); // Don't reveal which is wrong
         }
 
-        // Update lastActivityAt timestamp
+        // Update lastLogin timestamp
         await prisma.admin.update({
             where: {id: user.id},
             data: {lastLogin: new Date()}
