@@ -111,6 +111,12 @@ const loginUser = async (userData) => {
             console.error("Login failed: Invalid credentials");
             throw new Error('Invalid email or password'); // Don't reveal which is wrong
         }
+
+        // Update lastActivityAt timestamp
+        await prisma.admin.update({
+            where: {id: user.id},
+            data: {lastLogin: new Date()}
+        });
         
         console.log(`Login successful for user: ${user.email}`);
         return {

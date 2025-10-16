@@ -28,6 +28,7 @@ model Admin {
   learners  Learner[]         // Learners managed by this admin
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  lastLogin DateTime      @default(now())
 
   @@index([email]) // ← Add this for faster email lookups
 }
