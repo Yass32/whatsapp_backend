@@ -52,15 +52,29 @@ const PORT = process.env.PORT || 3000;
  * - cors(): Enables Cross-Origin Resource Sharing
  */
 app.use(helmet());
-app.use(cors());
 
 /**
- * Request Logging Middleware
- * - morgan('combined'): Logs the incoming request details (Method, URL, Status, Response Time)
- * 
- * to the console (stdout), which Render captures.
+ * CORS middleware
+ * - cors(): Enables Cross-Origin Resource Sharing
+ * - origin: Function to validate allowed origins
+ * - methods: Array of allowed HTTP methods
+ * - allowedHeaders: Array of allowed headers
+ * - credentials: Boolean to allow credentials (e.g., cookies)
  */
-//app.use(morgan('tiny')); // Request logging enabled
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowedOrigins = ["https://myapp.zenolearn.io", "http://localhost:3000"];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy violation'));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: [ "Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  credentials: true
+}));
 
 /**
  * Body parser middleware
