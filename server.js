@@ -61,6 +61,10 @@ app.use(helmet());
  * - allowedHeaders: Array of allowed headers
  * - credentials: Boolean to allow credentials (e.g., cookies)
  */
+
+app.use(cors()); // Allow all origins for development
+
+/*
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
@@ -68,7 +72,7 @@ app.use(cors({
       "http://localhost:3000",
       "http://localhost:3001",
       "https://whatsapp-backend-s4dm.onrender.com",
-      "https://your-app-name.onrender.com" // Add your Render app URL
+      "https://arontechnology.com/"
     ];
 
     // Log the origin for debugging
@@ -100,6 +104,7 @@ app.use(cors({
   ],
   credentials: true
 }));
+*/
 
 /**
  * Body parser middleware
