@@ -63,16 +63,41 @@ app.use(helmet());
  */
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedOrigins = ["https://myapp.zenolearn.io", "http://localhost:3000"];
-    
-    if (!origin || allowedOrigins.includes(origin)) {
+    const allowedOrigins = [
+      "https://myapp.zenolearn.io",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://whatsapp-backend-s4dm.onrender.com",
+      "https://your-app-name.onrender.com" // Add your Render app URL
+    ];
+
+    // Log the origin for debugging
+    console.log('CORS check - Origin:', origin);
+
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) {
+      console.log('CORS: Allowing request with no origin');
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      console.log('CORS: Origin allowed:', origin);
       callback(null, true);
     } else {
+      console.log('CORS: Origin rejected:', origin);
+      console.log('CORS: Allowed origins:', allowedOrigins);
       callback(new Error('CORS policy violation'));
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [ "Content-Type", "Authorization", "X-Requested-With", "Accept", "ngrok-skip-browser-warning"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "ngrok-skip-browser-warning",
+    "Origin"
+  ],
   credentials: true
 }));
 
