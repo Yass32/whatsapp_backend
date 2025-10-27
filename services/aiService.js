@@ -70,7 +70,7 @@ const generateAIResponse = async (from) => {
                   orderBy: {
                         createdAt: "desc"
                   },
-                  take: 5
+                  take: 6
             })
 
             console.log("Context messages: ", contextMessages);
@@ -114,7 +114,13 @@ const generateAIResponse = async (from) => {
                   throw new Error('Invalid AI response structure');
             }
 
-            return data.choices[0].message.content.trim();  
+            // Clean the AI response to remove extra quotes
+            let reply = data.choices[0].message.content.trim();
+            if ((reply.startsWith('"') && reply.endsWith('"')) || 
+                (reply.startsWith("'") && reply.endsWith("'"))) {
+                reply = reply.slice(1, -1).trim();
+            }
+            return reply;
       } catch (error) {
         console.error("Error generating AI response:", error);
         return "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.";
