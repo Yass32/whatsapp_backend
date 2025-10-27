@@ -70,6 +70,8 @@ const generateAIResponse = async (from) => {
                   take: 5
             })
 
+            console.log("Context messages: ", contextMessages);
+
             /*
 
             const aiResponse = await client.chat.completions.create({
@@ -83,7 +85,7 @@ const generateAIResponse = async (from) => {
             });
 
             */
-           
+
             const aiResponse = await fetch(process.env.OPENROUTER_API_URL, {
                   method: "POST",
                   headers: {
@@ -100,13 +102,18 @@ const generateAIResponse = async (from) => {
                   //"max_tokens": 150,
                   })
             });
-            
+
+            const data = await aiResponse.json();  // Parse JSON response
+            console.log("AI data response: ", data.choices[0]);
+            if (!data.choices || !data.choices[0]) {
+            throw new Error('Invalid AI response structure');
+            }
 
             console.log("AI response: ", aiResponse.choices[0]);
             
             console.log(aiResponse.choices[0].message.content);
 
-            return aiResponse.choices[0].message.content;
+            return aiResponse.choices[0].message.content.trim();
       } catch (error) {
         console.error("Error generating AI response:", error);
         return "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.";
