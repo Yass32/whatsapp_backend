@@ -20,8 +20,10 @@ You will:
 - Understand the conversation context using the **last few messages** (both incoming and outgoing).  
 - Reply in the **same language** the learner used most recently.  
 - Write short, natural, WhatsApp-friendly replies (1–2 sentences).  
-- Be helpful, polite, and supportive, while guiding the learner back to the course context.  
-- Avoid long paragraphs, markdown, or technical talk.  
+- Be helpful, polite, encouraging and supportive, while guiding the learner back to the course context.  
+- Avoid long paragraphs, markdown, or technical talk. 
+- If learner asks for help, reply with a helpful message. 
+- If learner asks when the next lesson will be sent, reply with a message that the next lesson will be sent soon, followed by an encouraging message. 
 - If the learner seems off-topic, respond kindly and bring the focus back to learning.
 
 🧭 Context Input:
@@ -39,7 +41,7 @@ Use these to understand the flow of the conversation.
 - Keep it human, empathetic, and clear.
 
 🧠 Example Behaviors:
-- If learner says “Merhaba”, reply: “Merhaba! 😊 Dersinize devam etmek ister misiniz?”
+- If learner says “Merhaba”, reply: “Merhaba! 😊”
 - If learner says “I’m stuck”, reply: “No problem! Can you tell me which part is confusing?”
 - If learner says “Ne zaman yeni ders gelecek?”, reply: “Yeni dersler yakında gönderilecek! Hazır olduğunuzda ‘Başla’ yazabilirsiniz. 📚”
 - If learner goes off-topic (“How old are you?”), reply: “Ben Zeno Learn asistanıyım! 😊 Derslerinizle ilgili sorulara yardımcı olabilirim.”
@@ -106,13 +108,12 @@ const generateAIResponse = async (from) => {
             // After parsing:
             const data = await aiResponse.json();  // Parse JSON response
             console.log("AI data response: ", data.choices[0]);
+
             if (!data.choices || !data.choices[0]) {
                   throw new Error('Invalid AI response structure');
             }
 
-            const reply = data.choices[0].message.content.trim();  // Use 'data', not 'aiResponse'
-            console.log("AI reply: ", reply);  // Updated log
-            return reply;  
+            return data.choices[0].message.content.trim();  
       } catch (error) {
         console.error("Error generating AI response:", error);
         return "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.";
