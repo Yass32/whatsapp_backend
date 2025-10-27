@@ -103,17 +103,16 @@ const generateAIResponse = async (from) => {
                   })
             });
 
+            // After parsing:
             const data = await aiResponse.json();  // Parse JSON response
             console.log("AI data response: ", data.choices[0]);
             if (!data.choices || !data.choices[0]) {
-            throw new Error('Invalid AI response structure');
+                  throw new Error('Invalid AI response structure');
             }
 
-            console.log("AI response: ", aiResponse.choices[0]);
-            
-            console.log(aiResponse.choices[0].message.content);
-
-            return aiResponse.choices[0].message.content.trim();
+            const reply = data.choices[0].message.content.trim();  // Use 'data', not 'aiResponse'
+            console.log("AI reply: ", reply);  // Updated log
+            return reply;  
       } catch (error) {
         console.error("Error generating AI response:", error);
         return "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.";
