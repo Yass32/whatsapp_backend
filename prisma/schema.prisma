@@ -21,7 +21,7 @@ model Admin {
   password  String
   email     String            @unique
   number    String
-  department Department       @default(Diğer)
+  department String       @default("Diğer")
   company   String 
   courses   Course[]
   groups    Group[]           // Groups created by this admin
@@ -33,15 +33,6 @@ model Admin {
   @@index([email]) // ← Add this for faster email lookups
 }
 
-enum Department {
-  Akademi
-  Eğitim_Gelişim
-  Eğitim_Teknolojileri
-  Eğitim
-  Pazarlama
-  İK
-  Diğer
-}
 
 model Group {
   id          Int                    @id @default(autoincrement())
