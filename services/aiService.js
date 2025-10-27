@@ -28,7 +28,7 @@ You will:
 You will be given the last few WhatsApp messages (3–5) in JSON-like format, each containing:
 - **body**: the text of the message  
 - **direction**: “incoming” (from learner) or “outgoing” (from system/admin)  
-- **localTime**: timestamp of when it was sent or received
+- **localtime**: timestamp of when it was sent or received
 - **type**: “text”, “image”, “video”, “whatsapp_template”, etc.  
 
 Use these to understand the flow of the conversation.
@@ -61,7 +61,7 @@ const generateAIResponse = async (from) => {
                   select: {
                         direction: true,
                         body: true,
-                        localTime: true,
+                        localtime: true,
                         type: true
                   },
                   orderBy: {
@@ -81,8 +81,24 @@ const generateAIResponse = async (from) => {
                   max_tokens: 150,
             });
 
-            //const reply = aiResponse.choices[0].message.content.trim();
-            //await sendTextMessage(from, reply);
+            /*
+            const aiResponse = await fetch(process.env.OPENROUTER_API_URL, {
+                  method: "POST",
+                  headers: {
+                  "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                  "model": "tngtech/deepseek-r1t2-chimera:free",
+                  "messages": [
+                        { role: "system", content: SYSTEM_PROMPT },
+                        { role: "user", content: `Recent conversation messages: ${JSON.stringify(contextMessages, null, 2)}` }
+                  ],
+                  "temperature": 0.7,
+                  "max_tokens": 150,
+                  })
+            });
+            */
 
             console.log("AI response: ", aiResponse.choices[0]);
             
