@@ -38,16 +38,6 @@ const registerNewUser = async (userData) => {
     // Destructure user data from request
     const {name, surname, password, email, number, department, company} = userData;
     
-    // Validate department against schema enum, default to 'Diğer' if invalid
-    const validDepartments = ['Akademi', 'Eğitim_Gelişim', 'Eğitim_Teknolojileri', 'Eğitim', 'Pazarlama', 'İK', 'Diğer'];
-    const validatedDepartment = department && validDepartments.includes(department) 
-        ? department : 'Diğer';
-
-    // Log a warning if department was invalid
-    if (department && !validDepartments.includes(department)) {
-        console.warn(`Invalid department '${department}'. Defaulting to 'Diğer'`);
-    }
-    
     try {
         // Hash the password with salt rounds of 10 for security
         const hashedPassword = await bcrypt.hash(password, 6);
@@ -60,7 +50,7 @@ const registerNewUser = async (userData) => {
                 password: hashedPassword, // Store hashed password
                 email,
                 number,
-                department: validatedDepartment, // Use validated department
+                department,
                 company,
             }
         });
