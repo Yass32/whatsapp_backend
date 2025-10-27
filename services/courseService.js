@@ -40,7 +40,7 @@ const prisma = new PrismaClient().$extends(withAccelerate());
  * @returns {Object} Scheduling result with course info and next execution time
  * @throws {Error} If course not found or scheduling parameters are invalid
  */
-const scheduleLessons = async (courseId, numbers, scheduleTime = "12:15", startDate = null, frequency = "daily", timezone = "Europe/Istanbul") => {
+const scheduleLessons = async (courseId, numbers, scheduleTime = "16:10", startDate = null, frequency = "daily", timezone = "Europe/Istanbul") => {
   try {
     // Fetch the course from database with all lessons and their quizzes
     const course = await prisma.course.findUnique({
