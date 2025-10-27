@@ -72,7 +72,9 @@ app.use(cors({
       "http://localhost:3000",
       "http://localhost:3001",
       "https://whatsapp-backend-s4dm.onrender.com",
-      "https://arontechnology.com/"
+      "https://arontechnology.com/",
+      "https://arontechnology.com/zenolearn-demo"
+
     ];
 
     // Log the origin for debugging

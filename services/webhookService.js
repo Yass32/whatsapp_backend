@@ -17,6 +17,7 @@ const { format } = require("date-fns"); // Date formatting utility
 const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 const { sendTextMessage } = require('./whatsappService'); // WhatsApp messaging service
+const { generateAIResponse } = require('./aiService'); // AI response generation service
 
 // Initialize Prisma client with acceleration for better performance
 const prisma = new PrismaClient().$extends(withAccelerate())
@@ -177,9 +178,14 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                 // Handle regular text messages
                 messageBody = messages.text?.body || ''; // Extract message text
                 // Log the text message
-                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
-                await sendTextMessage(from, "Mesajınız için teşekkürler! En kısa sürede size geri döneceğiz.");
-                console.log(from, messageBody);
+                await logMessageAndContext(id, from, messageBody, type, timestamp);
+
+                // Generate AI response
+                const aiResponse = await generateAIResponse(from);
+                // Send AI response
+                await sendTextMessage(from, aiResponse);
+                // Log AI response
+                await logMessageAndContext(id, from, aiResponse, type, timestamp);
                 break;
 
             case 'image':
@@ -191,7 +197,7 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                     caption: messages.image?.caption // Optional image caption
                 };
                 // Log the image message
-                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
+                await logMessageAndContext(id, from, messageBody, type, timestamp);
                 break;
 
             case 'document':
@@ -203,7 +209,7 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                     mimeType: messages.document?.mime_type // Document type (pdf, docx, etc.)
                 };
                 // Log the document message
-                await logMessageAndContext(id, from, messageBody, type, timestamp, messages.context?.id);
+                await logMessageAndContext(id, from, messageBody, type, timestamp);
                 break;
 
             case 'interactive':

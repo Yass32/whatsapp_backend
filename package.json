@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "export:excel": "node export-to-excel.js",
+    "export:sql": "node export-to-sql.js",
     "start": "node server.js",
     "server": "nodemon server.js",
     "build": "npm run server",
@@ -37,7 +39,9 @@
     "multer": "^2.0.2",
     "ngrok": "^5.0.0-beta.2",
     "node-cron": "^4.2.1",
+    "openai": "^6.7.0",
     "pg": "^8.16.3",
+    "postgresql-client": "^2.13.0",
     "redis": "^5.8.1",
     "xlsx": "^0.18.5"
   },
