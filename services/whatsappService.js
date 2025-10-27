@@ -14,7 +14,6 @@
 
 // Import required dependencies
 const axios = require('axios'); // HTTP client for API requests
-const { format } = require("date-fns"); // Date formatting utility
 const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 
@@ -183,7 +182,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
           messageId: response.data.messages[0].id, // WhatsApp message ID
           from: "zenolearn", // Sender identifier
           to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
-          body: templateName, // Store template name as message body
+          body: (parameters.header.join(' ') + ' ' + parameters.body.join(' ')).trim(), // Store template message as message body
           type: "template", // Message type for database categorization
           direction: "outgoing", // Message direction
           localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
