@@ -5,7 +5,7 @@ const OpenAI = require("openai");
 
 // Initialize Prisma client with Accelerate extension for optimized queries
 const prisma = new PrismaClient().$extends(withAccelerate())
-const client = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const SYSTEM_PROMPT = `You are Zeno Learn — a friendly and professional microlearning assistant that interacts with learners on WhatsApp.
 
@@ -83,6 +83,8 @@ const generateAIResponse = async (from) => {
 
             //const reply = aiResponse.choices[0].message.content.trim();
             //await sendTextMessage(from, reply);
+
+            console.log("AI response: ", aiResponse.choices[0]);
             
             console.log(aiResponse.choices[0].message.content);
 

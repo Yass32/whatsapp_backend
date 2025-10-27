@@ -185,7 +185,8 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                 // Send AI response
                 await sendTextMessage(from, aiResponse);
                 // Log AI response
-                await logMessageAndContext(id, from, aiResponse, type, timestamp);
+                const aiMessageId = "openai"+(new Date().getTime());
+                await logMessageAndContext(aiMessageId, from, aiResponse, type, timestamp);
                 break;
 
             case 'image':
