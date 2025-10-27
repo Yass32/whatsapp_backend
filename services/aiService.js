@@ -70,6 +70,7 @@ const generateAIResponse = async (from) => {
                   take: 5
             })
 
+            /*
 
             const aiResponse = await client.chat.completions.create({
                   model: "gpt-5",
@@ -78,10 +79,11 @@ const generateAIResponse = async (from) => {
                         { role: "user", content: `Recent conversation messages: ${JSON.stringify(contextMessages, null, 2)}` }
                   ],
                   temperature: 0.7,
-                  max_tokens: 150,
+                  //max_tokens: 150,
             });
 
-            /*
+            */
+           
             const aiResponse = await fetch(process.env.OPENROUTER_API_URL, {
                   method: "POST",
                   headers: {
@@ -95,10 +97,10 @@ const generateAIResponse = async (from) => {
                         { role: "user", content: `Recent conversation messages: ${JSON.stringify(contextMessages, null, 2)}` }
                   ],
                   "temperature": 0.7,
-                  "max_tokens": 150,
+                  //"max_tokens": 150,
                   })
             });
-            */
+            
 
             console.log("AI response: ", aiResponse.choices[0]);
             
