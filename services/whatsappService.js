@@ -86,8 +86,8 @@ const sendTextMessage = async (to, message) => {
  * Send a template message with dynamic parameters and optional quick reply button
  * 
  * Template messages are pre-approved message formats that can include:
- * - Dynamic header text
- * - Dynamic body text  
+ * - Dynamic header text (max 60 characters per parameter, truncated if exceeded)
+ * - Dynamic body text (max 1024 characters per parameter, truncated if exceeded)
  * - Quick reply buttons
  * 
  * @param {string} to - Recipient's WhatsApp number
@@ -112,7 +112,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
         type: 'header', // Component type for template header
         parameters: header.map(param => ({ // Map each header parameter
           type: 'text', // Parameter type (text, image, etc.)
-          text: param // Actual parameter value
+          text: param.length > 60? param.substring(0, 58) + '..' : param // Actual parameter value Whatsapp limit 60 character
         }))
       });
     }
@@ -123,7 +123,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
         type: 'body', // Component type for template body
         parameters: body.map(param => ({ // Map each body parameter
           type: 'text', // Parameter type
-          text: param // Actual parameter value
+          text: param.length > 1024? param.substring(0, 1022) + '..' : param // Actual parameter value Whatsapp limit 1024 character
         }))
       });
     }
@@ -256,7 +256,7 @@ const sendImageMessage = async(to, imageUrl, caption) => {
  * Send interactive button message for quiz questions
  * 
  * Creates a message with up to 3 clickable buttons for quiz options.
- * WhatsApp limits interactive buttons to maximum 3 options.
+ * WhatsApp limits interactive buttons to maximum 3 options and 20 characters per button title (truncated if exceeded).
  * 
  * @param {string} to - Recipient's WhatsApp number
  * @param {string} quizQuestion - The quiz question text
@@ -335,6 +335,7 @@ const sendInteractiveMessage = async (to, quizQuestion, options) => {
  * 
  * Creates a dropdown list message that can handle more than 3 options.
  * Users tap a button to open the list and select their answer.
+ * WhatsApp limits list row titles to 24 characters (truncated if exceeded).
  * 
  * @param {string} to - Recipient's WhatsApp number
  * @param {string} quizQuestion - The quiz question text
