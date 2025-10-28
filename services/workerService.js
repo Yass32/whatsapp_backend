@@ -2,6 +2,7 @@ const { Worker } = require('bullmq');
 const whatsappService = require('./whatsappService');
 const { storeMessageContext } = require('./webhookService');
 const connection = require('../redis-connection');
+const { lessonQueue, reminderQueue, notificationQueue, welcomeQueue, textQueue } = require('./queueService');
 
 
 /**
@@ -100,19 +101,88 @@ const lessonProcessor = async (job) => {
 
 
 /**
- * Processes jobs for sending text messages.
+ * Processes jobs for sending text messages with retry and cleanup logic.
  * Each job contains the data needed to send a text message to a single user.
+ * 
+ * @param {Object} job - The BullMQ job object
+ * @param {Object} job.data - The job data
+ * @param {string} job.data.phoneNumber - Recipient's phone number
+ * @param {string} job.data.message - The message text to send
+ * @returns {Promise<void>}
  */
 const textProcessor = async (job) => {
   const { phoneNumber, message } = job.data;
-  console.log(`Processing text job ${job.id} for ${phoneNumber}`);
+  const maxRetries = job.opts.attempts || 3;
+  const retryCount = job.attemptsMade;
+  
   try {
+    console.log(`📨 [Attempt ${retryCount + 1}/${maxRetries}] Processing text job ${job.id} for ${phoneNumber}`);
+    
     // Send text message
     await whatsappService.sendTextMessage(phoneNumber, message);
-    console.log(`✅ Text sent to ${phoneNumber}`);
+    
+    console.log(`✅ Successfully sent text to ${phoneNumber}`);
+    
   } catch (error) {
-    console.error(`❌ Failed to send text to ${phoneNumber}:`, error.message);
-    throw error; // Throw error to let BullMQ handle retry
+    console.error(`❌ [Attempt ${retryCount + 1}/${maxRetries}] Failed to send text to ${phoneNumber}:`, error.message);
+    
+    // Log detailed error information
+    const errorInfo = {
+      error: error.message,
+      stack: error.stack,
+      jobId: job.id,
+      phoneNumber,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.error('Error details:', JSON.stringify(errorInfo, null, 2));
+    
+    // If we've reached max retries, log final failure
+    if (retryCount >= maxRetries - 1) {
+      console.error(`❌ Max retries (${maxRetries}) reached for job ${job.id}. Marking as failed.`);
+    }
+    
+    throw error; // Let BullMQ handle the retry
+  }
+};
+
+/**
+ * Cleans up old completed/failed jobs from the queue
+ * @param {Queue} queue - The BullMQ queue to clean
+ * @param {number} maxAgeHours - Maximum age of jobs to keep (in hours)
+ * @returns {Promise<{completed: number, failed: number}>} Count of removed jobs
+ */
+const cleanupOldJobs = async (queue, maxAgeHours = 24) => {
+  try {
+    const currentTime = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+    let removedCount = { completed: 0, failed: 0 };
+
+    // Clean up old completed jobs
+    const completedJobs = await queue.getJobs(['completed'], 0, 100);
+    for (const job of completedJobs) {
+      if (job.finishedOn && currentTime - job.finishedOn > maxAgeMs) {
+        await job.remove();
+        removedCount.completed++;
+      }
+    }
+
+    // Clean up old failed jobs
+    const failedJobs = await queue.getJobs(['failed'], 0, 100);
+    for (const job of failedJobs) {
+      if (job.finishedOn && currentTime - job.finishedOn > maxAgeMs) {
+        await job.remove();
+        removedCount.failed++;
+      }
+    }
+
+    if (removedCount.completed > 0 || removedCount.failed > 0) {
+      console.log(`🧹 Cleaned up ${removedCount.completed} completed and ${removedCount.failed} failed jobs from ${queue.name} older than ${maxAgeHours} hours`);
+    }
+    return removedCount;
+  } catch (error) {
+    console.error(`Error cleaning up old jobs from ${queue.name}:`, error);
+    throw error;
   }
 };
 
@@ -121,9 +191,9 @@ const textProcessor = async (job) => {
 // Create workers for each queue
 
 const workerConnectionOptions = {
-      connection,
-      // Parallel workers
-      concurrency: Number(process.env.SEND_CONCURRENCY ?? 10)
+    connection,
+    // Parallel workers
+    concurrency: Number(process.env.SEND_CONCURRENCY ?? 10)
 }
 
 const lessonWorker = new Worker('lessonSender', lessonProcessor, workerConnectionOptions);
@@ -132,15 +202,60 @@ const notificationWorker = new Worker('notificationSender', notificationProcesso
 const welcomeWorker = new Worker('welcomeSender', welcomeProcessor, workerConnectionOptions);
 const textWorker = new Worker('textSender', textProcessor, workerConnectionOptions);
 
+
+// Schedule cleanup of old jobs every 6 hours
+const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const cleanupInterval = setInterval(async () => {
+  try {
+    console.log('🧹 Running scheduled queue cleanup...');
+    const queues = [lessonQueue, reminderQueue, notificationQueue, welcomeQueue, textQueue];
+    for (const queue of queues) {
+      await cleanupOldJobs(queue, 24); // Clean jobs older than 24 hours
+    }
+  } catch (error) {
+    console.error('Error during scheduled cleanup:', error);
+  }
+}, CLEANUP_INTERVAL_MS);
+
+// Handle graceful shutdown
+const cleanup = async () => {
+  console.log('🛑 Shutting down workers...');
+  clearInterval(cleanupInterval);
+  
+  await Promise.all([
+    lessonWorker.close(),
+    reminderWorker.close(),
+    notificationWorker.close(),
+    welcomeWorker.close(),
+    textWorker.close()
+  ]);
+  
+  console.log('✅ All workers stopped');
+};
+
 // Event listeners for logging
 [lessonWorker, reminderWorker, notificationWorker, welcomeWorker, textWorker].forEach(worker => {
-  worker.on('completed', job => {
-    console.log(`${worker.name} job ${job.id} has completed.`);
+  worker.on('completed', (job) => {
+    console.log(`✅ ${worker.name} job ${job.id} completed successfully`);
   });
+  
   worker.on('failed', (job, err) => {
-    console.log(`${worker.name} job ${job.id} has failed with ${err.message}`);
+    const jobInfo = job ? `job ${job.id}` : 'unknown job';
+    console.error(`❌ ${worker.name} ${jobInfo} failed after ${job?.attemptsMade || 0} attempts: ${err.message}`);
+  });
+  
+  worker.on('error', (error) => {
+    console.error(`🚨 ${worker.name} worker encountered an error:`, error);
+  });
+  
+  worker.on('stalled', (jobId) => {
+    console.warn(`⚠️ ${worker.name} job ${jobId} stalled and will be reprocessed`);
   });
 });
+
+// Handle process termination
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
 
 console.log('Worker service started and listening for jobs...');
 
@@ -149,5 +264,7 @@ module.exports = {
     reminderWorker,
     notificationWorker,
     welcomeWorker,
-    textWorker
+    textWorker,
+    cleanupOldJobs,
+    cleanup
 }
