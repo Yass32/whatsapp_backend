@@ -99,7 +99,7 @@ const lessonProcessor = async (job) => {
 
 
 /**
- * Processes jobs for sending text messages with retry and cleanup logic.
+ * Processes jobs for sending text messages.
  * Each job contains the data needed to send a text message to a single user.
  * 
  * @param {Object} job - The BullMQ job object

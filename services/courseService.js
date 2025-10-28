@@ -347,7 +347,7 @@ const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='0
   console.log(`📲 Queuing notifications for course "${course.name}" to ${learnersToNotify.length} learners.`);
   // Add job to queue for each learner
   for (const to of learnersToNotify) {
-    addJobToQueue(notificationQueue, 'sendNotification', { to, courseData, course });
+    addJobToQueue(notificationQueue, 'sendNotification', { phoneNumber: to, courseData, course });
   }
 
   // Step 5: Schedule automated lesson delivery
@@ -1108,7 +1108,7 @@ const updateCourse = async (courseId, courseData, lessonsData = [], numbers, sch
                   try {
                       const notificationResults = await Promise.all(learnersToNotify.map(to => 
                           addJobToQueue(notificationQueue, 'sendNotification', { 
-                              to, 
+                              phoneNumber: to, 
                               courseData: updatedCourse, 
                               course: updatedCourse 
                           })

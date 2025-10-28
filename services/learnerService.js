@@ -85,7 +85,7 @@ const createLearner = async (learnersData, adminId) => {
             // Queue welcome messages only for the newly created learners
             for (const learner of createdLearners) {
                 console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
-                await addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { to: learner.number, name: learner.name });
+                await addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { phoneNumber: learner.number, name: learner.name });
             }
         
             return { 

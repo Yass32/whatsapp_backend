@@ -144,14 +144,19 @@ const addJobToQueue = async (queue, jobName, data) => {
 
     // Step 1: Generate a unique job ID to prevent duplicate jobs
     // This ensures we don't send the same message twice if the function is called multiple times
-    const jobId = data.name && data.to 
-    // For welcome messages: use name and recipient number
-    ? `${data.name}:${data.to}` 
-    // For lesson messages: use course ID, lesson ID, and phone number
-    : data.lesson 
-      ? `${data.course.id}:${data.lesson.id}:${data.phoneNumber || data.to}` 
+    const jobId = data.message && data.phoneNumber ? 
+      // For text messages: use message and recipient number
+      `${data.message.slice(0, 7)}:${data.phoneNumber}`
+    
+    :data.name && data.phoneNumber ? 
+      // For welcome messages: use name and recipient number
+      `${data.name}:${data.phoneNumber}`
+    
+    : data.lesson && data.course && data.phoneNumber ?
+    // For lesson and reminder messages: use course ID, lesson ID, and phone number
+       `${data.course.id}:${data.lesson.id}:${data.phoneNumber}` 
       // For notification messages: use course ID and recipient number
-      : `${data.course.id}:${data.to}`;
+      : `${data.course.id}:${data.phoneNumber}`;
 
     // Step 2: Add the job to the queue with the unique ID
     // If a job with this ID already exists, it won't be added again
