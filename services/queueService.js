@@ -138,9 +138,7 @@ const addJobToQueue = async (queue, jobName, data) => {
       throw new Error('Job data must be an object');
     }
 
-    //console.log(`Adding job ${jobName} to ${queue.name} queue`);
-    console.log(`Job data: ${JSON.stringify(data)}`);
-
+    //console.log(`Job data: ${JSON.stringify(data)}`);
 
     // Step 1: Generate a unique job ID to prevent duplicate jobs
     // This ensures we don't send the same message twice if the function is called multiple times
