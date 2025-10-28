@@ -153,10 +153,15 @@ const addJobToQueue = async (queue, jobName, data) => {
       `${data.name}:${data.phoneNumber}`
     
     : data.lesson && data.course && data.phoneNumber ?
-    // For lesson and reminder messages: use course ID, lesson ID, and phone number
-       `${data.course.id}:${data.lesson.id}:${data.phoneNumber}` 
+      // For lesson and reminder messages: use course ID, lesson ID, and phone number
+      `${data.course.id}:${data.lesson.id}:${data.phoneNumber}`
+    
+    : data.course && data.phoneNumber ?
       // For notification messages: use course ID and recipient number
-      : `${data.course.id}:${data.phoneNumber}`;
+      `${data.course.id}:${data.phoneNumber}`
+
+    // Fallback ID
+    : `job-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; 
 
     // Step 2: Add the job to the queue with the unique ID
     // If a job with this ID already exists, it won't be added again
@@ -164,9 +169,9 @@ const addJobToQueue = async (queue, jobName, data) => {
       jobId: jobId, // Unique identifier for deduplication
     });
 
-    console.log(`✅ Job ${job.id} added to ${queue.name} queue: ${jobName}`);
+    console.log(`✅ Job ${jobId} added to ${queue.name} queue: ${jobName}`);
 
-    return job;
+    return jobId;
   } catch (error) {
     console.error('❌ Failed to add job to queue:', {
       queue: queue?.name || 'unknown',
