@@ -184,7 +184,7 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                 // Generate AI response
                 const aiResponse = await generateAIResponse(from);
                 // Send AI response and log message
-                addJobToQueue(textQueue, { phoneNumber: from, message: aiResponse });
+                addJobToQueue(textQueue, "sendText", { phoneNumber: from, message: aiResponse });
                 //await sendTextMessage(from, aiResponse);
                 // Log AI response
                 //const aiMessageId = "openai"+(new Date().getTime());

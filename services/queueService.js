@@ -124,9 +124,24 @@ const textQueue = new Queue('textSender', connectionOptions);
  * });
  */
 const addJobToQueue = async (queue, jobName, data) => {
-  // Step 1: Generate a unique job ID to prevent duplicate jobs
-  // This ensures we don't send the same message twice if the function is called multiple times
-  const jobId = data.name && data.to 
+  try {
+
+    if (!queue || typeof queue.add !== 'function') {
+      throw new Error('Invalid queue provided');
+    }
+
+    if (!jobName || typeof jobName !== 'string') {
+      throw new Error('Job name must be a non-empty string');
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('Job data must be an object');
+    }
+
+
+    // Step 1: Generate a unique job ID to prevent duplicate jobs
+    // This ensures we don't send the same message twice if the function is called multiple times
+    const jobId = data.name && data.to 
     // For welcome messages: use name and recipient number
     ? `${data.name}:${data.to}` 
     // For lesson messages: use course ID, lesson ID, and phone number
@@ -135,11 +150,26 @@ const addJobToQueue = async (queue, jobName, data) => {
       // For notification messages: use course ID and recipient number
       : `${data.course.id}:${data.to}`;
 
-  // Step 2: Add the job to the queue with the unique ID
-  // If a job with this ID already exists, it won't be added again
-  await queue.add(jobName, data, {
-    jobId: jobId, // Unique identifier for deduplication
-  });
+    // Step 2: Add the job to the queue with the unique ID
+    // If a job with this ID already exists, it won't be added again
+    await queue.add(jobName, data, {
+      jobId: jobId, // Unique identifier for deduplication
+    });
+
+    console.log(`✅ Job ${job.id} added to ${queue.name} queue: ${jobName}`);
+
+    return job;
+  } catch (error) {
+    console.error('❌ Failed to add job to queue:', {
+      queue: queue?.name || 'unknown',
+      jobName,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+
+    throw new Error(`Failed to add job to queue: ${error.message}`);
+  }
 };
 
 // Step 6: Export all queues and functions for use in other modules

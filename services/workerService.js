@@ -122,50 +122,9 @@ const textProcessor = async (job) => {
   }
 };
 
-/**
- * Cleans up old completed/failed jobs from the queue
- * @param {Queue} queue - The BullMQ queue to clean
- * @param {number} maxAgeHours - Maximum age of jobs to keep (in hours)
- * @returns {Promise<{completed: number, failed: number}>} Count of removed jobs
- */
-const cleanupOldJobs = async (queue, maxAgeHours = 24) => {
-  try {
-    const currentTime = Date.now();
-    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
-    let removedCount = { completed: 0, failed: 0 };
-
-    // Clean up old completed jobs
-    const completedJobs = await queue.getJobs(['completed'], 0, 100);
-    for (const job of completedJobs) {
-      if (job.finishedOn && currentTime - job.finishedOn > maxAgeMs) {
-        await job.remove();
-        removedCount.completed++;
-      }
-    }
-
-    // Clean up old failed jobs
-    const failedJobs = await queue.getJobs(['failed'], 0, 100);
-    for (const job of failedJobs) {
-      if (job.finishedOn && currentTime - job.finishedOn > maxAgeMs) {
-        await job.remove();
-        removedCount.failed++;
-      }
-    }
-
-    if (removedCount.completed > 0 || removedCount.failed > 0) {
-      console.log(`🧹 Cleaned up ${removedCount.completed} completed and ${removedCount.failed} failed jobs from ${queue.name} older than ${maxAgeHours} hours`);
-    }
-    return removedCount;
-  } catch (error) {
-    console.error(`Error cleaning up old jobs from ${queue.name}:`, error);
-    throw error;
-  }
-};
-
 
 
 // Create workers for each queue
-
 const workerConnectionOptions = {
     connection,
     // Parallel workers
@@ -179,35 +138,6 @@ const welcomeWorker = new Worker('welcomeSender', welcomeProcessor, workerConnec
 const textWorker = new Worker('textSender', textProcessor, workerConnectionOptions);
 
 
-// Schedule cleanup of old jobs every 6 hours
-const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
-const cleanupInterval = setInterval(async () => {
-  try {
-    console.log('🧹 Running scheduled queue cleanup...');
-    const queues = [lessonQueue, reminderQueue, notificationQueue, welcomeQueue, textQueue];
-    for (const queue of queues) {
-      await cleanupOldJobs(queue, 24); // Clean jobs older than 24 hours
-    }
-  } catch (error) {
-    console.error('Error during scheduled cleanup:', error);
-  }
-}, CLEANUP_INTERVAL_MS);
-
-// Handle graceful shutdown
-const cleanup = async () => {
-  console.log('🛑 Shutting down workers...');
-  clearInterval(cleanupInterval);
-  
-  await Promise.all([
-    lessonWorker.close(),
-    reminderWorker.close(),
-    notificationWorker.close(),
-    welcomeWorker.close(),
-    textWorker.close()
-  ]);
-  
-  console.log('✅ All workers stopped');
-};
 
 // Event listeners for logging
 [lessonWorker, reminderWorker, notificationWorker, welcomeWorker, textWorker].forEach(worker => {
@@ -229,10 +159,6 @@ const cleanup = async () => {
   });
 });
 
-// Handle process termination
-process.on('SIGTERM', cleanup);
-process.on('SIGINT', cleanup);
-
 console.log('Worker service started and listening for jobs...');
 
 module.exports = {
@@ -241,6 +167,4 @@ module.exports = {
     notificationWorker,
     welcomeWorker,
     textWorker,
-    cleanupOldJobs,
-    cleanup
 }
