@@ -9,14 +9,14 @@ const { lessonQueue, reminderQueue, notificationQueue, welcomeQueue, textQueue }
  * Processes jobs for sending welcome message notifications to new learners
  */
 const welcomeProcessor = async (job) => {
-  const { to, name } = job.data;
-  console.log(`Processing welcoming job ${job.id} for ${to}`);
+  const { phoneNumber, name } = job.data;
+  console.log(`Processing welcoming job ${job.id} for ${phoneNumber}`);
   try {
     // Send welcome message
-    console.log(`Sending welcome message to ${to}`);
-    await whatsappService.sendTemplateMessage(to, 'welcome_message', 'tr', { body: [name] });
+    console.log(`Sending welcome message to ${phoneNumber}`);
+    await whatsappService.sendTemplateMessage(phoneNumber, 'welcome_message', 'tr', { body: [name] });
   } catch (error) {
-    console.error(`Failed to welcome ${to}:`, error.message);
+    console.error(`Failed to welcome ${phoneNumber}:`, error.message);
     throw error;
   }
 };
@@ -25,15 +25,15 @@ const welcomeProcessor = async (job) => {
  * Processes jobs for sending new course notifications.
  */
 const notificationProcessor = async (job) => {
-  const { to, courseData, course } = job.data;
-  console.log(`Processing notification job ${job.id} for ${to}`);
+  const { phoneNumber, courseData, course } = job.data;
+  console.log(`Processing notification job ${job.id} for ${phoneNumber}`);
   try {
     // Send course notification
-    const res = await whatsappService.sendTemplateMessage(to, 'new_course', 'tr', { header: [courseData.name], body: [courseData.description] }, "Başla");
-    await storeMessageContext(to, res.messageId, course.id);
-    if (courseData.coverImage) await whatsappService.sendImageMessage(to, courseData.coverImage);
+    const res = await whatsappService.sendTemplateMessage(phoneNumber, 'new_course', 'tr', { header: [courseData.name], body: [courseData.description] }, "Başla");
+    await storeMessageContext(phoneNumber, res.messageId, course.id);
+    if (courseData.coverImage) await whatsappService.sendImageMessage(phoneNumber, courseData.coverImage);
   } catch (notificationError) {
-    console.error(`Failed to notify ${to}:`, notificationError.message);
+    console.error(`Failed to notify ${phoneNumber}:`, notificationError.message);
     throw notificationError;
   }
 };
@@ -61,7 +61,6 @@ const reminderProcessor = async (job) => {
  */
 const lessonProcessor = async (job) => {
   const { phoneNumber, frequency, lesson, course, currentLessonIndex } = job.data;
-  console.log(`Processing lesson job ${job.id} for ${phoneNumber}`);
   try {
     // Send lesson content
     const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson_tr', 'tr', { header: [lesson.title], body: [lesson.content] }, "Tamamdır");
@@ -112,7 +111,6 @@ const textProcessor = async (job) => {
   const { phoneNumber, message } = job.data;
 
   try {
-    console.log(`📨 Processing text job ${job.id} for ${phoneNumber}`);
     await whatsappService.sendTextMessage(phoneNumber, message);
     console.log(`✅ Successfully sent text to ${phoneNumber}`);
   } catch (error) {

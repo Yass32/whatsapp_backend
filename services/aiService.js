@@ -69,7 +69,7 @@ const generateAIResponse = async (from) => {
                   orderBy: {
                         createdAt: "desc"
                   },
-                  take: 6
+                  take: 8
             })
 
             console.log("Context messages: ", contextMessages);
@@ -94,7 +94,7 @@ const generateAIResponse = async (from) => {
 
             // After parsing:
             const data = await aiResponse.json();  // Parse JSON response
-            console.log("AI data response: ", data.choices[0]);
+            console.log("AI data response: ", data.choices[0].message);
 
             if (!data.choices || !data.choices[0]) {
                   throw new Error('Invalid AI response structure');
