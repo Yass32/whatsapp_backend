@@ -50,11 +50,11 @@ const connectionOptions = {
     },
     
     // Automatically remove old completed jobs to prevent memory bloat
-    // Keep only the last 1000 completed jobs in Redis
-    removeOnComplete: 1000,
+    // Keep only the last 50 completed jobs in Redis
+    removeOnComplete: 50,
     
-    // Keep the last 5000 failed jobs for debugging and analysis
-    removeOnFail: 5000,
+    // Keep the last 50 failed jobs for debugging and analysis
+    removeOnFail: 50,
   },
 };
 

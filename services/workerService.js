@@ -63,8 +63,6 @@ const lessonProcessor = async (job) => {
   const { phoneNumber, frequency, lesson, course, currentLessonIndex } = job.data;
   console.log(`Processing lesson job ${job.id} for ${phoneNumber}`);
   try {
-    // Send lesson title
-    // await whatsappService.sendTextMessage(phoneNumber, `📚 ${frequency} Lesson ${currentLessonIndex + 1}: ${lesson.title}`);
     // Send lesson content
     const response = await whatsappService.sendTemplateMessage(phoneNumber, 'new_lesson_tr', 'tr', { header: [lesson.title], body: [lesson.content] }, "Tamamdır");
     await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
@@ -112,37 +110,15 @@ const lessonProcessor = async (job) => {
  */
 const textProcessor = async (job) => {
   const { phoneNumber, message } = job.data;
-  const maxRetries = job.opts.attempts || 3;
-  const retryCount = job.attemptsMade;
-  
+
   try {
-    console.log(`📨 [Attempt ${retryCount + 1}/${maxRetries}] Processing text job ${job.id} for ${phoneNumber}`);
-    
-    // Send text message
+    console.log(`📨 Processing text job ${job.id} for ${phoneNumber}`);
     await whatsappService.sendTextMessage(phoneNumber, message);
-    
     console.log(`✅ Successfully sent text to ${phoneNumber}`);
-    
   } catch (error) {
-    console.error(`❌ [Attempt ${retryCount + 1}/${maxRetries}] Failed to send text to ${phoneNumber}:`, error.message);
-    
-    // Log detailed error information
-    const errorInfo = {
-      error: error.message,
-      stack: error.stack,
-      jobId: job.id,
-      phoneNumber,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.error('Error details:', JSON.stringify(errorInfo, null, 2));
-    
-    // If we've reached max retries, log final failure
-    if (retryCount >= maxRetries - 1) {
-      console.error(`❌ Max retries (${maxRetries}) reached for job ${job.id}. Marking as failed.`);
-    }
-    
-    throw error; // Let BullMQ handle the retry
+    console.error(`❌ Failed to send text to ${phoneNumber}:`, error.message);
+    // Let BullMQ handle the retry based on queue configuration
+    throw new Error("Text Processor error: " + error.message);
   }
 };
 
