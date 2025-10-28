@@ -99,6 +99,24 @@ const lessonProcessor = async (job) => {
 };
 
 
+/**
+ * Processes jobs for sending text messages.
+ * Each job contains the data needed to send a text message to a single user.
+ */
+const textProcessor = async (job) => {
+  const { phoneNumber, message } = job.data;
+  console.log(`Processing text job ${job.id} for ${phoneNumber}`);
+  try {
+    // Send text message
+    await whatsappService.sendTextMessage(phoneNumber, message);
+    console.log(`✅ Text sent to ${phoneNumber}`);
+  } catch (error) {
+    console.error(`❌ Failed to send text to ${phoneNumber}:`, error.message);
+    throw error; // Throw error to let BullMQ handle retry
+  }
+};
+
+
 
 // Create workers for each queue
 
@@ -112,9 +130,10 @@ const lessonWorker = new Worker('lessonSender', lessonProcessor, workerConnectio
 const reminderWorker = new Worker('reminderSender', reminderProcessor, workerConnectionOptions);
 const notificationWorker = new Worker('notificationSender', notificationProcessor, workerConnectionOptions);
 const welcomeWorker = new Worker('welcomeSender', welcomeProcessor, workerConnectionOptions);
+const textWorker = new Worker('textSender', textProcessor, workerConnectionOptions);
 
 // Event listeners for logging
-[lessonWorker, reminderWorker, notificationWorker, welcomeWorker].forEach(worker => {
+[lessonWorker, reminderWorker, notificationWorker, welcomeWorker, textWorker].forEach(worker => {
   worker.on('completed', job => {
     console.log(`${worker.name} job ${job.id} has completed.`);
   });
@@ -129,5 +148,6 @@ module.exports = {
     lessonWorker,
     reminderWorker,
     notificationWorker,
-    welcomeWorker
+    welcomeWorker,
+    textWorker
 }

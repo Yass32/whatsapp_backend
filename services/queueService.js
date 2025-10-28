@@ -86,6 +86,13 @@ const notificationQueue = new Queue('notificationSender', connectionOptions);
 const welcomeQueue = new Queue('welcomeSender', connectionOptions);
 
 /**
+ * Queue for sending text messages
+ * Used to send normal text messages to learners
+ */
+const textQueue = new Queue('textSender', connectionOptions);
+
+
+/**
  * Add a job to a specified queue with deduplication
  * 
  * This function adds jobs to queues while preventing duplicates.
@@ -96,6 +103,7 @@ const welcomeQueue = new Queue('welcomeSender', connectionOptions);
  * - Welcome messages: name:phoneNumber
  * - Lesson messages: courseId:lessonId:phoneNumber
  * - Notification messages: courseId:phoneNumber
+ * - Text messages: phoneNumber
  * 
  * @param {Queue} queue - The BullMQ queue to add the job to
  * @param {string} jobName - Descriptive name for the job (e.g., 'sendLesson')
@@ -140,5 +148,6 @@ module.exports = {
   reminderQueue, // Queue for reminder jobs
   notificationQueue, // Queue for notification jobs
   welcomeQueue, // Queue for welcome message jobs
+  textQueue, // Queue for text message jobs
   addJobToQueue, // Function to add jobs to any queue
 };

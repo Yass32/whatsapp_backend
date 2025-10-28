@@ -18,7 +18,7 @@ const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 const { sendTextMessage, sendImageMessage, sendTemplateMessage, sendInteractiveMessage, sendInteractiveListMessage } = require('../services/whatsappService'); // WhatsApp messaging functions
 const { storeMessageContext } = require('../services/webhookService'); // Message context storage for replies
-const { lessonQueue, reminderQueue, notificationQueue, addJobToQueue } = require('./queueService');
+const { lessonQueue, reminderQueue, notificationQueue, textQueue, addJobToQueue } = require('./queueService');
 
 // Initialize Prisma client with acceleration for better performance
 const prisma = new PrismaClient().$extends(withAccelerate());

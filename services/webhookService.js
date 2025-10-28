@@ -17,6 +17,7 @@ const { format } = require("date-fns"); // Date formatting utility
 const { PrismaClient } = require('@prisma/client'); // Database ORM client
 const { withAccelerate } = require('@prisma/extension-accelerate'); // Prisma performance extension
 const { sendTextMessage } = require('./whatsappService'); // WhatsApp messaging service
+const { textQueue, addJobToQueue } = require('./queueService'); // Queue service to add text message jobs
 const { generateAIResponse } = require('./aiService'); // AI response generation service
 
 // Initialize Prisma client with acceleration for better performance
@@ -183,7 +184,8 @@ const handleIncomingMessages = async (messages, name = 'Unknown') => {
                 // Generate AI response
                 const aiResponse = await generateAIResponse(from);
                 // Send AI response and log message
-                await sendTextMessage(from, aiResponse);
+                addJobToQueue(textQueue, { phoneNumber: from, message: aiResponse });
+                //await sendTextMessage(from, aiResponse);
                 // Log AI response
                 //const aiMessageId = "openai"+(new Date().getTime());
                 //await logMessageAndContext(aiMessageId, from, aiResponse, type, timestamp);
@@ -300,7 +302,7 @@ const handleQuickReply = async (from, messageBody, context) => {
         }
         
         // Extract course and lesson IDs from the stored context
-        const { courseId, lessonId} = messageContext;
+        const { courseId, lessonId } = messageContext;
         
         // Handle "Start" button replies (course enrollment activation)
         if(messageBody === "Başla"){
