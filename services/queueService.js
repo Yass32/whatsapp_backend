@@ -22,7 +22,10 @@
 
 // Step 1: Import required dependencies
 const { Queue } = require('bullmq'); // BullMQ queue library for job management
-const connection = require('../redis-connection'); // Shared Redis connection instance
+const { getRedisConnection } = require('../redis-connection'); // Shared Redis connection instance
+
+const connection = getRedisConnection(); // Shared Redis connection instance
+
 
 // Step 2: Define connection options for all queues
 // These settings apply to all queues created in this module

@@ -1,8 +1,11 @@
 const { Worker } = require('bullmq');
 const whatsappService = require('./whatsappService');
 const { storeMessageContext } = require('./webhookService');
-const connection = require('../redis-connection');
 const { lessonQueue, reminderQueue, notificationQueue, welcomeQueue, textQueue } = require('./queueService');
+const { getRedisConnection } = require('../redis-connection'); // It is the lazy singleton Redis function
+
+// Get one shared Redis connection for all workers
+const connection = getRedisConnection(); // Shared Redis connection instance
 
 
 /**
