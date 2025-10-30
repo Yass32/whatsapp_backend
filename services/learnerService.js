@@ -65,9 +65,13 @@ const createLearner = async (learnersData, adminId) => {
                 select: { email: true }
             });
 
-            const existingEmails = new Set(existingLearners.map(l => l.email));
-            const newLearnersData = learnersData.filter(l => !existingEmails.has(l.email));
+            // Get existing learner emails to avoid duplicates
+            const existingEmails = new Set(existingLearners.map(learner => learner.email));
 
+            // Filter out existing learners
+            const newLearnersData = learnersData.filter(learner => !existingEmails.has(learner.email));
+
+            // Check if all learners already exist
             if (newLearnersData.length === 0) {
                 throw new Error('All learners already exist');
             }
@@ -100,54 +104,7 @@ const createLearner = async (learnersData, adminId) => {
             message: 'Learners registered successfully',
             data: result
         };
-
         
-
-        // Get existing learners to avoid duplicates
-        const existingLearners = await prisma.learner.findMany({
-            where: {
-                OR: learnersData.map(learner => ({
-                    email: learner.email
-                }))
-            },
-            select: { email: true, id: true }
-        });
-
-        // Get existing learner emails to avoid duplicates
-        const existingEmails = new Set(existingLearners.map(learner => learner.email));
-
-        // Filter out existing learners
-        const newLearnersData = learnersData.filter(learner => !existingEmails.has(learner.email));
-
-        // Check if all learners already exist
-        if (newLearnersData.length === 0) {
-            throw new Error('Learners already exist');
-        }
-
-        // Create new learners and get their data
-        return await prisma.$transaction(async (tx) => {
-            const createdLearners = await Promise.all(
-                newLearnersData.map(learner => 
-                    tx.learner.create({
-                        data: learner,
-                        select: { id: true, email: true, name: true, number: true }
-                    })
-                )
-            );
-        
-            // Queue welcome messages only for the newly created learners
-            for (const learner of createdLearners) {
-                console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
-                await addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { phoneNumber: learner.number, name: learner.name });
-            }
-        
-            return { 
-                success: true,
-                count: createdLearners.length,
-                message: 'Learners registered successfully',
-                data: createdLearners
-            };
-        });
     } catch (error) {
         console.error("Learner creation error:", error); 
         throw new Error(`Failed to register learners: ${error.message}`);
