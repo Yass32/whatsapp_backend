@@ -41,7 +41,7 @@ const registerLearner = async (request, response) => {
         }
 
         // Create learners using the service
-        const result = await learnerService.createLearner(learners, adminId);
+        const result = await learnerService.createLearner(learners, Number(adminId));
         
         // Return success response with the count of created learners
         response.status(201).json(result);
