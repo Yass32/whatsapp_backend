@@ -252,7 +252,7 @@ const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='0
           description: courseData.description, // Course description
           coverImage: courseData.coverImage || null, // Optional cover image URL
           status: courseData.status || 'PUBLISHED', // Default status for new courses
-          publishedAt: courseData.status === 'PUBLISHED' ? new Date() : null, // Optional published date
+          publishedAt: startDate, // Course start date
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes

@@ -28,27 +28,80 @@ const prisma = new PrismaClient().$extends(withAccelerate())
  */
 const createLearner = async (learnersData, adminId) => {
     try {
-        // Validate input
-        if (!Array.isArray(learnersData) || learnersData.length === 0) {
-            throw new Error('Learners data must be a non-empty array');
-        }
-        
-        if (!adminId || isNaN(adminId)) {
+        // Validate admin ID
+        const numericAdminId = Number(adminId);
+        if (!adminId || !Number.isInteger(numericAdminId)) {
             throw new Error('Valid admin ID is required');
         }
 
+        // Verify admin exist
+        const admin = await prisma.admin.findUnique({
+            where: { id: adminId },
+            select: { id: true }
+        });
+        if (!admin) throw new Error('Admin not found');
+
+        // Validate learners array is not empty
+        if (!Array.isArray(learnersData) || learnersData.length === 0) {
+            throw new Error('Learners data must be a non-empty array');
+        }
+
+        // Validate learner data
         for (const learner of learnersData) {
             if (!learner.email || !learner.number || !learner.name) {
                 throw new Error('Each learner must have email, number, and name');
             }
         }
 
-        // Verify admin and group exist
-        const admin = await prisma.admin.findUnique({
-            where: { id: adminId },
-            select: { id: true }
+        // Execute creation in transaction with duplicate check inside
+        const result = await prisma.$transaction(async (tx) => {
+            // Check for duplicates INSIDE transaction
+            const existingLearners = await tx.learner.findMany({
+                where: {
+                    OR: learnersData.map(learner => ({
+                        email: learner.email
+                    }))
+                },
+                select: { email: true }
+            });
+
+            const existingEmails = new Set(existingLearners.map(l => l.email));
+            const newLearnersData = learnersData.filter(l => !existingEmails.has(l.email));
+
+            if (newLearnersData.length === 0) {
+                throw new Error('All learners already exist');
+            }
+
+            // Create learners
+            const createdLearners = await Promise.all(
+                newLearnersData.map(learner => 
+                    tx.learner.create({
+                        data: learner,
+                        select: { id: true, email: true, name: true, number: true }
+                    })
+                )
+            );
+
+            return createdLearners;
         });
-        if (!admin) throw new Error('Admin not found');
+
+        // Queue jobs AFTER successful transaction
+        for (const learner of result) {
+            console.log(`Queueing welcome message for ${learner.name} (${learner.email})`);
+            await addJobToQueue(welcomeQueue, 'sendWelcomeMessage', { 
+                phoneNumber: learner.number, 
+                name: learner.name 
+            });
+        }
+
+        return { 
+            success: true,
+            count: result.length,
+            message: 'Learners registered successfully',
+            data: result
+        };
+
+        
 
         // Get existing learners to avoid duplicates
         const existingLearners = await prisma.learner.findMany({
