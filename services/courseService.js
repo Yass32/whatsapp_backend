@@ -24,6 +24,19 @@ const { lessonQueue, reminderQueue, notificationQueue, textQueue, addJobToQueue 
 const prisma = new PrismaClient().$extends(withAccelerate());
 
 
+// Helper function to format scheduled date and time
+function formatScheduledDateTime(dateStr, timeStr) {
+  // Parse the date and time
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  
+  // Create a date object
+  const date = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+  
+  // Format as ISO string with timezone offset
+  return date.toISOString().replace('Z', '+00:00');
+}
+
 /**
  * Schedule lessons to be sent at specific times with configurable frequency
  * 
@@ -252,7 +265,7 @@ const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='0
           description: courseData.description, // Course description
           coverImage: courseData.coverImage || null, // Optional cover image URL
           status: courseData.status || 'PUBLISHED', // Default status for new courses
-          publishedAt: startDate, // Course start date
+          publishedAt: formatScheduledDateTime(startDate, scheduleTime), // Course start date
           adminId: Number(courseData.adminId), // ID of the admin who created this course
           totalLessons: lessonsData.length, // Count of lessons for progress tracking
           totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
