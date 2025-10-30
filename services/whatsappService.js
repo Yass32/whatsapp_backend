@@ -182,7 +182,7 @@ const sendTemplateMessage = async (to, templateName, languageCode, parameters, q
           messageId: response.data.messages[0].id, // WhatsApp message ID
           from: "zenolearn", // Sender identifier
           to: response.data.contacts[0].wa_id, // Recipient WhatsApp ID
-          body: (parameters.header.join(' ') + ' ' + parameters.body.join(' ')).trim(), // Store template message as message body
+          body: parameters.header? (parameters.header.join(' ') + ' ' + parameters.body.join(' ')).trim() : parameters.body.join(' '), // Store template message as message body
           type: "template", // Message type for database categorization
           direction: "outgoing", // Message direction
           localtime: new Date(new Date().getTime() + (3 * 60 * 60 * 1000)) // UTC+3 timezone
