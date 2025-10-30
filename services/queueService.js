@@ -36,7 +36,7 @@ const connectionOptions = {
   // Step 3: Configure rate limiting to prevent exceeding WhatsApp API limits
   // This ensures we don't send messages too quickly and get rate-limited
   limiter: { 
-    max: Number(process.env.SEND_MAX_PER_SEC ?? 10), // Maximum jobs per duration (default: 10 per second)
+    max: 12, // Maximum jobs per duration (default: 10 per second)
     duration: 1000 // Duration in milliseconds (1000ms = 1 second)
   },
   
@@ -53,11 +53,11 @@ const connectionOptions = {
     },
     
     // Automatically remove old completed jobs to prevent memory bloat
-    // Keep only the last 50 completed jobs in Redis
-    removeOnComplete: 50,
+    // Keep only the last 5 completed jobs in Redis
+    removeOnComplete: 5,
     
-    // Keep the last 50 failed jobs for debugging and analysis
-    removeOnFail: 50,
+    // Keep the last 5 failed jobs for debugging and analysis
+    removeOnFail: 5,
   },
 };
 
