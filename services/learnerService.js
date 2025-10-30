@@ -106,6 +106,7 @@ const createLearner = async (learnersData, adminId) => {
         };
         
     } catch (error) {
+        // Log detailed error for debugging
         console.error("Learner creation error:", error); 
         throw new Error(`Failed to register learners: ${error.message}`);
     }
