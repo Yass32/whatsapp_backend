@@ -89,7 +89,6 @@ const generateAIResponse = async (from) => {
                         { role: "user", content: `Recent conversation messages: ${JSON.stringify(contextMessages, null, 2)}` }
                   ],
                   "temperature": 0.7,
-                  //"max_tokens": 150,
                   })
             });
 
