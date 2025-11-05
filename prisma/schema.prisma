@@ -21,7 +21,7 @@ model Admin {
   password  String
   email     String            @unique
   number    String
-  department String       @default("Diğer")
+  department String    
   company   String 
   courses   Course[]
   groups    Group[]           // Groups created by this admin
