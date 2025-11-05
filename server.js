@@ -123,7 +123,7 @@ app.use(express.json());
  */
 app.use((req, res, next) => {
     const start = Date.now();
-    const bodyLimit = 1200; // Character limit for body logging
+    const bodyLimit = 12000; // Character limit for body logging
     
     // Log incoming request details
     console.log(`\n${'='.repeat(70)}`);
