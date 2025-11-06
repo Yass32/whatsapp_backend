@@ -31,6 +31,7 @@
     "date-fns": "^4.1.0",
     "docker": "^1.0.0",
     "dotenv": "^17.2.0",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "ioredis": "^5.7.0",
