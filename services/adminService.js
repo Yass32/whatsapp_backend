@@ -40,7 +40,7 @@ const registerNewUser = async (userData) => {
     
     try {
         // Hash the password with salt rounds of 10 for security
-        const hashedPassword = await bcrypt.hash(password, 6);
+        const hashedPassword = await bcrypt.hash(password, 10);
         
         // Create new admin user in database
         const newAdmin = await prisma.admin.create({
@@ -89,17 +89,17 @@ const loginUser = async (userData) => {
             where: {email},
         });
         
-        // Check if user exists and password is correct in one step
+        // Check if user exists
         if (!user) {
-            console.error("Login failed: Invalid credentials");
-            throw new Error('Invalid email or password'); // Don't reveal which is wrong
+            console.error("Login failed: Invalid email");
+            throw new Error('Invalid email');
         }
 
         // Compare provided password with stored hash
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
-            console.error("Login failed: Invalid credentials");
-            throw new Error('Invalid email or password'); // Don't reveal which is wrong
+            console.error("Invalid password: ", password);
+            throw new Error('Invalid password');
         }
 
         // Update lastLogin timestamp
@@ -110,9 +110,8 @@ const loginUser = async (userData) => {
         
         console.log(`Login successful for user: ${user.email}`);
         return {
-            success: true,
+            user,
             message: "Login successful",
-            user
         };
 
         /*

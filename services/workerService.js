@@ -129,7 +129,7 @@ const textProcessor = async (job) => {
 const workerConnectionOptions = {
     connection,
     // Parallel workers
-    concurrency: Number(process.env.SEND_CONCURRENCY ?? 10)
+    concurrency: Number(process.env.SEND_CONCURRENCY ?? 5)
 }
 
 const lessonWorker = new Worker('lessonSender', lessonProcessor, workerConnectionOptions);

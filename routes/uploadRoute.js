@@ -1,10 +1,17 @@
 /**
- * File Upload Routes - API Endpoints for File Management
+ * File Upload Routes - API Endpoints for Cloudinary File Management
  *
- * This module handles file upload operations including:
- * - Image uploads for course covers
- * - Document uploads for course materials
- * - File validation and storage
+ * This module handles file upload operations to Cloudinary including:
+ * - Image uploads for course covers (up to 5MB)
+ * - Document uploads for course materials (up to 30MB)
+ * - Media uploads for course content (up to 16MB)
+ * - File validation and cloud storage management
+ * 
+ * @module uploadRoute
+ * @requires express
+ * @requires multer
+ * @requires multer-storage-cloudinary
+ * @requires ../config/cloudinaryConfig
  */
 
 // 1. First, we need to require necessary modules
@@ -13,7 +20,30 @@ const router = express.Router();
 const multer = require('multer'); // For handling file uploads
 const path = require('path'); // For file path operations
 const fs = require('fs'); // For file system operations
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinaryConfig');
 
+
+/**
+ * Cloudinary storage configuration
+ * Automatically handles file upload to Cloudinary with proper folder organization
+*/
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (request, file) => {
+    let folder = 'course_media'; // organize your uploads
+    let resourceType = 'auto';   // auto-detect image/video/pdf
+    
+    return {
+      folder: folder,
+      resource_type: resourceType, // auto-detect (image, video, raw, etc.)
+      public_id: `${file.originalname.split('.')[0]}-${Date.now()}`, // filename without extension
+    };
+  },
+});
+
+
+/*
 // 2. Configure multer storage settings
 const storage = multer.diskStorage({
     destination: function (request, file, callback) {
@@ -33,10 +63,15 @@ const storage = multer.diskStorage({
         callback(null, basename + '-' + uniqueSuffix + extension);
     }
 });
+*/
 
-// 3. File filter function to validate file types
+/**
+ * File filter function to validate file types
+ * @param {Object} request - Express request object
+ * @param {Object} file - Uploaded file object
+ * @param {Function} callback - Callback function
+ */
 const fileFilter = (request, file, callback) => {
-    // Allowed file types
     const allowedTypes = [
         'image/jpeg',
         'image/png',
@@ -54,7 +89,7 @@ const fileFilter = (request, file, callback) => {
     }
 };
 
-// 4. Configure multer with our settings
+// Configure multer with Cloudinary storage
 const upload = multer({
     storage: storage,
     limits: {
@@ -67,16 +102,12 @@ const upload = multer({
 
 
 /**
- * POST /upload/single
- * Upload a single file
- *
- * Uploads one file at a time with validation.
- * Commonly used for profile pictures or course cover images.
- *
- * Request: multipart/form-data with 'file' field
- * Response: JSON with file information
+ * @route POST /upload/single
+ * @description Upload a single file to Cloudinary
+ * @param {Object} request.file - File from multipart/form-data with 'file' field
+ * @returns {Object} JSON with Cloudinary file information
  */
-router.post('/single', upload.single('file'), (request, response) => {
+router.post('/single', upload.single('file'), async (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -90,19 +121,23 @@ router.post('/single', upload.single('file'), (request, response) => {
             success: true,
             message: 'File uploaded successfully',
             file: {
-                filename: request.file.filename,
-                originalname: request.file.originalname,
-                mimetype: request.file.mimetype,
-                size: request.file.size,
-                path: request.file.path,
-                url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
+                filename: request.file.filename, // unique Cloudinary ID
+                url: request.file.path, // 🌐 Cloudinary URL
+                resource_type: request.file.resource_type, // Cloudinary resource type (image, video, raw, etc.)
+                format: request.file.format,
+                size: request.file.size
+                //originalname: request.file.originalname,
+                //mimetype: request.file.mimetype,
+                //path: request.file.path,
+                //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
+        console.error('Upload error:', error);
         response.status(500).json({
             success: false,
-            error: 'File upload failed',
-            details: error.message
+            message: 'File upload failed',
+            error: error.message
         });
     }
 });
@@ -110,7 +145,7 @@ router.post('/single', upload.single('file'), (request, response) => {
 
 
 // Cover Image
-router.post("/cover", upload.single("file"), (request, response) => {
+router.post("/cover", upload.single("file"), async (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -131,25 +166,29 @@ router.post("/cover", upload.single("file"), (request, response) => {
             success: true,
             message: 'Cover image uploaded successfully',
             file: {
-                filename: request.file.filename,
-                originalname: request.file.originalname,
-                mimetype: request.file.mimetype,
-                size: request.file.size,
-                path: request.file.path, // path to the file
-                url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
+                filename: request.file.filename, // unique Cloudinary ID
+                url: request.file.path, // 🌐 Cloudinary URL
+                resource_type: request.file.resource_type, // Cloudinary resource type (image, video, raw, etc.)
+                format: request.file.format,
+                size: request.file.size    
+                //originalname: request.file.originalname,
+                //mimetype: request.file.mimetype,
+                //path: request.file.path,
+                //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
+        console.error('Cover image upload error:', error);
         response.status(500).json({
             success: false,
-            error: 'Cover image upload failed',
-            details: error.message
+            message: 'Cover image upload failed',
+            error: error.message
         });
     }
 });
 
 // Document
-router.post("/document", upload.single("file"), (request, response) => {
+router.post("/document", upload.single("file"), async (request, response) => {
     try {
         if (!request.file) {
             return response.status(400).json({
@@ -170,25 +209,29 @@ router.post("/document", upload.single("file"), (request, response) => {
             success: true,
             message: 'Document uploaded successfully',
             file: {
-                filename: request.file.filename,
-                originalname: request.file.originalname,
-                mimetype: request.file.mimetype,
-                size: request.file.size,
-                path: request.file.path,
-                url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
+                filename: request.file.filename, // unique Cloudinary ID
+                url: request.file.path, // 🌐 Cloudinary URL
+                resource_type: request.file.resource_type, // Cloudinary resource type (image, video, raw, etc.)
+                format: request.file.format,
+                size: request.file.size 
+                //originalname: request.file.originalname,
+                //mimetype: request.file.mimetype,
+                //path: request.file.path,
+                //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
+        console.error('Document upload error:', error);
         response.status(500).json({
             success: false,
-            error: 'Document upload failed',
-            details: error.message
+            message: 'Document upload failed',
+            error: error.message
         });
     }
 });
 
 // Media (video/audio/image)
-router.post("/media", upload.single("file"), (request, response) => {
+router.post("/media", upload.single("file"), async (request, response) => {
     const extension = path.extname(request.file.originalname).toLowerCase();
     if( extension === ".mp4") {
         response.type("video/mp4");
@@ -214,19 +257,23 @@ router.post("/media", upload.single("file"), (request, response) => {
             success: true,
             message: 'Media file uploaded successfully',
             file: {
-                filename: request.file.filename,
-                originalname: request.file.originalname,
-                mimetype: request.file.mimetype,
-                size: request.file.size,
-                path: request.file.path,
-                url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
+                filename: request.file.filename, // unique Cloudinary ID
+                url: request.file.path, // 🌐 Cloudinary URL
+                resource_type: request.file.resource_type, // Cloudinary resource type (image, video, raw, etc.)
+                format: request.file.format,
+                size: request.file.size   
+                //originalname: request.file.originalname,
+                //mimetype: request.file.mimetype,
+                //path: request.file.path,
+                //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
+        console.error('Media upload error:', error);
         response.status(500).json({
             success: false,
-            error: 'Media file upload failed',
-            details: error.message
+            message: 'Media file upload failed',
+            error: error.message
         });
     }
 });
@@ -242,7 +289,7 @@ router.post("/media", upload.single("file"), (request, response) => {
  * Request: multipart/form-data with 'files' field (array)
  * Response: JSON with array of uploaded files
  */
-router.post('/multiple', upload.array('files', 10), (request, response) => {
+router.post('/multiple', upload.array('files', 10), async (request, response) => {
     try {
         if (!request.files || request.files.length === 0) {
             return response.status(400).json({
@@ -253,39 +300,56 @@ router.post('/multiple', upload.array('files', 10), (request, response) => {
 
         // Process uploaded files
         const uploadedFiles = request.files.map(file => ({
-            filename: file.filename,
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            size: file.size,
-            path: file.path,
-            url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${file.filename}`
+            filename: file.filename, // unique Cloudinary ID
+            url: file.path, // 🌐 Cloudinary URL
+            resource_type: file.resource_type, // Cloudinary resource type (image, video, raw, etc.)  
+            format: file.format,
+            size: file.size     
+            //originalname: file.originalname,
+            //mimetype: file.mimetype,
+            //path: file.path,
+            //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${file.filename}`
         }));
 
         response.status(200).json({
             success: true,
-            message: `${request.files.length} files uploaded successfully`,
+            message: `${uploadedFiles.length} files uploaded successfully`,
             files: uploadedFiles
         });
     } catch (error) {
+        console.error('❌ Multiple upload failed:', error);
         response.status(500).json({
             success: false,
-            error: 'File upload failed',
+            error: 'Multiple file upload failed',
             details: error.message
         });
     }
 });
 
 /**
- * DELETE /upload/:filename
- * Delete a specific file
- *
- * Removes a file from the server by filename.
- * Use with caution - permanent deletion.
- *
- * @param {string} filename - Name of file to delete
+ * @route DELETE /upload/:filename
+ * @description Delete a specific file from Cloudinary
+ * @param {string} filename - Public ID of the file in Cloudinary
+ * @returns {Object} JSON with deletion status
  */
-router.delete('/:filename', (request, response) => {
+router.delete('/:filename', async (request, response) => {
     try {
+
+        const { filename } = request.params;
+        if (!filename) return response.status(400).json({ success: false, message: 'Missing file ID' });
+
+        // Cloudinary destroy
+        const result = await cloudinary.uploader.destroy(filename, { resource_type: 'auto' });
+
+        if (result.result === 'ok') {
+            response.status(200).json({ success: true, message: 'File deleted successfully', result });
+        } else {
+            response.status(404).json({ success: false, message: 'File not found or already deleted', result });
+        }
+
+
+
+        /*
         const filename = request.params.filename;
         const ROOT = path.resolve(__dirname, ".."); // go up from /routes to project root
         const filePath = path.join(ROOT, 'uploads', 'course_media', filename);
@@ -305,11 +369,13 @@ router.delete('/:filename', (request, response) => {
             success: true,
             message: 'File deleted successfully'
         });
+        */
     } catch (error) {
+        console.error('❌ Delete failed:', error);
         response.status(500).json({
             success: false,
-            error: 'File deletion failed',
-            details: error.message
+            message: 'File deletion failed',
+            error: error.message
         });
     }
 });
@@ -321,8 +387,29 @@ router.delete('/:filename', (request, response) => {
  * Removes all files from the server.
  * Use with caution - permanent deletion.
  */
-router.delete('/all', (request, response) => {
+router.delete('/all', async (request, response) => {
     try {
+        const folder = 'course_media';
+        const { resources } = await cloudinary.api.resources({
+            type: 'upload',
+            prefix: folder + '/',
+            max_results: 500,
+        });
+
+        if (!resources.length) {
+            return response.status(200).json({ success: true, message: 'No files to delete' });
+        }
+
+        const publicIds = resources.map(file => file.public_id);
+        const deleteResult = await cloudinary.api.delete_resources(publicIds, { resource_type: 'auto' });
+
+        response.status(200).json({
+            success: true,
+            message: `Deleted ${publicIds.length} files successfully`,
+            result: deleteResult,
+        });
+
+        /*
         const ROOT = path.resolve(__dirname, ".."); // go up from /routes to project root
         const uploadDirectory = path.join(ROOT, 'uploads', 'course_media');
 
@@ -344,6 +431,7 @@ router.delete('/all', (request, response) => {
             success: true,
             message: 'All files deleted successfully'
         });
+        */
     } catch (error) {
         response.status(500).json({
             success: false,
@@ -362,8 +450,36 @@ router.delete('/all', (request, response) => {
  *
  * @param {string} filename - Name of file to serve
  */
-router.get('/:filename', (request, response) => {
+router.get('/:filename', async (request, response) => {
     try {
+
+        const { filename } = request.params;
+        if (!filename) return response.status(400).json({ success: false, message: 'Missing file ID' });
+
+        // Get detailed info about the file from Cloudinary
+        const result = await cloudinary.api.resource(filename, {
+            resource_type: 'auto', // Automatically detect (image, video, raw, etc.)
+        });
+
+        // Return all details
+        response.status(200).json({
+        success: true,
+        message: 'File retrieved successfully',
+        file: {
+            public_id: result.public_id,
+            url: result.secure_url,
+            format: result.format,
+            bytes: result.bytes,
+            width: result.width,
+            height: result.height,
+            created_at: result.created_at,
+            type: result.resource_type,
+            folder: result.folder,
+        },
+        });
+
+
+        /*
         const filename = request.params.filename;
         const filePath = path.join(__dirname, '../uploads/course_media', filename);
 
@@ -377,6 +493,7 @@ router.get('/:filename', (request, response) => {
 
         // Send the file
         response.sendFile(filePath);
+        */
     } catch (error) {
         response.status(500).json({
             success: false,

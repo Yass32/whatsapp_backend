@@ -8,6 +8,7 @@
  * - Bulk operations for efficiency
  */
 
+//const { PrismaClient } = require('../generated/prisma');
 const { PrismaClient } = require('@prisma/client');
 const { withAccelerate } = require('@prisma/extension-accelerate');
 
@@ -311,12 +312,30 @@ const getGroupDetails = async (groupId) => {
             include: {
                 members: {
                     include: {
-                        learner: true
+                        learner: {  //learner: true
+                            select: {
+                                id: true,
+                                name: true,
+                                surname: true,
+                                email: true,
+                                number: true,
+                                active: true
+                            }
+                        }
                     }
                 },
                 courses: {
                     include: {
-                        course: true
+                        course: {   //course: true
+                            select: {
+                                id: true,
+                                name: true,
+                                description: true,
+                                totalLessons: true,
+                                totalQuizzes: true,
+                                status: true
+                            }
+                        }
                     }
                 }
             }
@@ -489,9 +508,8 @@ const updateGroup = async (groupId, updateData) => {
         });
 
         return {
-            success: true,
+            group,
             message: 'Group updated successfully',
-            data: group
         };
     } catch (error) {
         console.error('Update group error:', error);
@@ -516,28 +534,16 @@ const deleteGroup = async (groupId) => {
 
     return await prisma.$transaction(async (tx) => {
         try {
-            // First verify the group exists
-            const group = await tx.group.findUnique({
-                where: { id: groupId },
-                select: { id: true, name: true }
-            });
-
-            if (!group) {
-                throw new Error('Group not found');
-            }
-
-            // Delete all related data in correct order
-            await tx.groupCourse.deleteMany({
-                where: { groupId }
-            });
-
-            await tx.groupMember.deleteMany({
-                where: { groupId }
-            });
-
-            // Finally, delete the group
+            // Delete group and get deleted data in one operation
             const deletedGroup = await tx.group.delete({
-                where: { id: groupId }
+                where: { id: groupId },
+                include: {
+                    _count: {
+                        select: {
+                            members: true                        
+                        }
+                    }
+                }
             });
 
             console.log(`Successfully deleted group: ${deletedGroup.name} (ID: ${deletedGroup.id})`);
