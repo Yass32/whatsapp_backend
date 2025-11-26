@@ -1,0 +1,253 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  //output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        Int               @id @default(autoincrement())
+  name      String
+  surname   String
+  password  String
+  email     String            @unique
+  number    String
+  department String    
+  company   String 
+  courses   Course[]
+  groups    Group[]           // Groups created by this admin
+  learners  Learner[]         // Learners managed by this admin
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  lastLogin DateTime?
+
+  @@index([email]) // ← Add this for faster email lookups
+}
+
+
+model Group {
+  id          Int                    @id @default(autoincrement())
+  name        String
+  admin       Admin                  @relation(fields: [adminId], references: [id])
+  adminId     Int
+  members     GroupMember[]          // Memberships in this group
+  courses     GroupCourse[]          // Courses assigned to this group
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([adminId])
+}
+
+model GroupMember {
+  id        Int                      @id @default(autoincrement())
+  group     Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   Int
+  learner   Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  learnerId Int
+  joinedAt  DateTime                @default(now())
+
+  @@unique([groupId, learnerId])    // Prevent duplicate memberships
+  @@index([groupId])
+  @@index([learnerId])
+}
+
+model GroupCourse {
+  id        Int                      @id @default(autoincrement())
+  group     Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   Int
+  course    Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId  Int
+  assignedAt DateTime               @default(now())
+
+  @@unique([groupId, courseId])     // Prevent duplicate course assignments
+  @@index([groupId])
+  @@index([courseId])
+}
+
+model Learner {
+  id              Int                @id @default(autoincrement())
+  active          Boolean            @default(true)
+  name            String
+  surname         String
+  email           String             @unique
+  number          String
+  enrollments     Enrollment[]       // Course enrollments
+  courseProgress  CourseProgress[]   // Overall course progress
+  lessonProgress  LessonProgress[]   // Individual lesson progress
+  groups          GroupMember[]            // Groups this learner belongs to
+  admin           Admin?             @relation(fields: [adminId], references: [id])
+  adminId         Int?               // The admin who created/invited this learner
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([adminId])
+}
+
+
+model Course {
+  id             Int               @id @default(autoincrement())
+  name           String
+  description    String
+  coverImage     String?
+  status         CourseStatus      @default(PUBLISHED)
+  publishedAt    DateTime?         // When the course was published
+  admin          Admin             @relation(fields: [adminId], references: [id])
+  adminId        Int
+  totalLessons   Int               @default(0) // Total lessons in the course
+  totalQuizzes   Int               @default(0) // Total quizzes in the course
+  lessons        Lesson[]   
+  enrollments    Enrollment[]  
+  courseProgress CourseProgress[]  // Track learner progress in this course
+  messageContexts MessageContext[] // Messages related to this course
+  groups         GroupCourse[]     // Groups this course is assigned to
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([adminId])
+  @@index([status])
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+
+model Lesson {
+  id          Int                  @id @default(autoincrement())
+  title       String
+  content     String
+  course      Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId    Int
+  quiz        Quiz?                // Single quiz for this lesson (back to original)
+  day         Int                  // Day in course (e.g., 1, 2, 3)
+  document    String?              // Document file path
+  media       String?              // Media file path
+  externalLink String?            // External link URL
+  lessonProgress LessonProgress[] // Track learner progress for this lesson
+  messageContexts MessageContext[] // Messages related to this lesson
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model Quiz {
+  id          Int                  @id @default(autoincrement())
+  lessonId    Int                  @unique // One quiz per lesson (back to original)
+  lesson      Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  question    String
+  options     Json                 // Store options as JSON array, e.g., ["A", "B", "C"]
+  correctOption String
+  messageContexts MessageContext[] // Messages related to this quiz
+}
+
+// Track overall course progress for each learner
+model CourseProgress {
+  id              Int              @id @default(autoincrement())
+  learnerId       Int
+  courseId        Int
+  learner         Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  completedLessons Int             @default(0) // Number of completed lessons
+  progressPercent Float            @default(0) // Calculated percentage (0-100)
+  quizScore       Float            @default(0) // Calculated percentage (0-100)
+  startedAt       DateTime         @default(now())
+  lastActivityAt  DateTime         @updatedAt
+  isCompleted     Boolean          @default(false) // True when all lessons completed
+  completedAt     DateTime?        // When course was fully completed
+
+  @@unique([learnerId, courseId]) // Prevent duplicate progress records
+  @@index([learnerId])
+  @@index([courseId])
+}
+
+// Track individual lesson progress for each learner
+model LessonProgress {
+  id              Int              @id @default(autoincrement())
+  learnerId       Int
+  lessonId        Int
+  learner         Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson          Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  isCompleted     Boolean          @default(false) // Whether the lesson content was completed
+  completedAt     DateTime?        // When lesson was completed
+  quizScore       Float?           // Score for lesson quiz (0-100)
+  quizReply       String?          // Quiz reply from learner
+  //attempts        Int            @default(0) // Number of quiz attempts
+  //timeSpent       Int?           // Time spent on lesson in minutes
+  startedAt       DateTime         @default(now())
+  lastActivityAt  DateTime         @updatedAt
+
+  @@unique([learnerId, lessonId]) // One progress record per learner per lesson
+  @@index([learnerId])
+  @@index([lessonId])
+}
+
+
+model Enrollment {
+  id         Int                   @id @default(autoincrement())
+  learnerId  Int
+  courseId   Int
+  learner    Learner               @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course     Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime              @default(now())
+
+  @@unique([learnerId, courseId]) // prevent duplicate enrollments
+}
+
+model MessageContext {
+  id           Int                  @id @default(autoincrement())
+  messageId    String               @unique
+  message      Message              @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+  phoneNumber  String
+  courseId     Int
+  course       Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId     Int?
+  lesson       Lesson?              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quizId       Int?
+  quiz         Quiz?                @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  createdAt    DateTime             @default(now())
+  expiresAt    DateTime             // For automatic cleanup
+
+  // Validation: If lessonId is provided, it must belong to the course
+  // If quizId is provided, it must belong to the lesson
+  @@index([phoneNumber])
+  @@index([courseId])
+}
+
+model Message {
+  id           Int                  @id @default(autoincrement())
+  messageId    String               @unique // WhatsApp message ID - now unique
+  from         String?              // Sender's number
+  to           String?              // Recipient's number
+  body         String?              // Message content
+  type         String?              // Message type (text, image, etc.)
+  direction    MessageDirection?    // outgoing or incoming
+  status       MessageStatus?       // sent, delivered, read, failed, received, etc.
+  localtime    DateTime?            // When the message was sent/received (UTC+3)
+  createdAt    DateTime             @default(now()) 
+  updatedAt    DateTime             @updatedAt
+  messageContexts MessageContext[]   // Messages can have multiple contexts
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+  failed
+  received
+  other
+}
+
+enum MessageDirection {
+  outgoing
+  incoming
+}
