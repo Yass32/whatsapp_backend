@@ -593,7 +593,8 @@ const getAdminCourses = async (adminId) => {
         },
         courseProgress: {
           select: {
-            progressPercent: true // We only need the progress percentage
+            progressPercent: true, // We only need the progress percentage
+            isCompleted: true
           }
         },
         _count: {
@@ -613,20 +614,36 @@ const getAdminCourses = async (adminId) => {
       
       // Handle case where there's no progress data yet
       let averageProgress = 0;
+      let completedEnrollments = 0;
+      let inProgressEnrollments = 0;
+      let activeEnrollments = 0;
       if (course.courseProgress && course.courseProgress.length > 0) {
         const totalProgress = course.courseProgress.reduce(
           (sum, progress) => sum + (progress.progressPercent || 0), 0
         );
         averageProgress = Math.round((totalProgress / course.courseProgress.length) * 100) / 100;
+
+        course.courseProgress.forEach(progress=>{
+          if (progress.isCompleted){
+            completedEnrollments++;
+          }else if (progress.progressPercent > 0){
+            inProgressEnrollments++;
+          }
+        })
+
+        activeEnrollments = inProgressEnrollments;
       }
 
       // Remove internal fields from the response
-      const { courseProgress, _count, ...courseData } = course;
+      const { courseProgress, _count,lessons, enrollments, messageContexts, ...courseData } = course;
       
       return {
         ...courseData,
         averageProgress,
-        totalEnrollments
+        totalEnrollments,
+        completedEnrollments,
+        inProgressEnrollments,
+        activeEnrollments
       };
     });
 
