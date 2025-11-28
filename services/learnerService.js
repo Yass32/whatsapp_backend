@@ -264,204 +264,154 @@ const deleteAllLearners = async () => {
 
 const getLearnerInsights = async (adminId) => {
     try {
-        // Get all learners for this admin
-        const learners = await prisma.learner.findMany({
-            where: { adminId: adminId },
-            select: {
-                id: true,
-                name: true,
-                surname: true,
-                number: true,
-                createdAt: true
-            }
-        });
-
-        if (!learners || learners.length === 0) {
-            return {
-                success: true,
-                message: 'No learners found',
-                data: []
-            };
-        }
-
-        // Get comprehensive insights for all learners
-        const insights = [];
-
-        for (const learner of learners) {
-            // Get course progress for this learner
-            const courseProgress = await prisma.courseProgress.findMany({
-                where: { learnerId: learner.id },
-                include: {
-                    course: {
-                        select: {
-                            id: true,
-                            name: true,
-                            totalLessons: true,
-                            totalQuizzes: true
-                        }
-                    }
-                }
-            });
-
-            // Get lesson progress for this learner
-            const lessonProgress = await prisma.lessonProgress.findMany({
-                where: { learnerId: learner.id },
-                include: {
-                    lesson: {
-                        select: {
-                            id: true,
-                            title: true,
-                            day: true,
-                            courseId: true
-                        }
-                    }
-                }
-            });
-
-            // Get quiz scores for this learner
-            const quizScores = await prisma.lessonProgress.findMany({
-                where: {
-                    learnerId: learner.id,
-                    quizScore: { not: null }
-                },
-                select: {
-                    quizScore: true,
-                    lesson: {
-                        select: {
-                            id: true,
-                            title: true
-                        }
-                    }
-                }
-            });
-
-            // Get message interactions for this learner
-            // Only include message contexts that have valid course, lesson, AND quiz references
-            // This ensures we only get quiz-related message interactions, not general messages
-            const messageContexts = await prisma.messageContext.findMany({
-                where: {
-                    phoneNumber: learner.number,
-                    courseId: { not: null }, // Filter for valid course references
-                    lessonId: { not: null }, // Filter for valid lesson references
-                    quizId: { not: null }    // Filter for valid quiz references (quiz interactions only)
-                },
-                include: {
-                    message: {
-                        select: {
-                            id: true,
-                            body: true,
-                            status: true,
-                            createdAt: true
-                        }
-                    },
-                    course: {
-                        select: {
-                            id: true,
-                            name: true
-                        }
-                    },
-                    lesson: {
-                        select: {
-                            id: true,
-                            title: true
-                        }
-                    },
-                    quiz: {
-                        select: {
-                            id: true,
-                            question: true,
-                            correctOption: true
-                        }
-                    }
-                }
-            });
-
-            // Calculate insights for this learner
-            const completedCourses = courseProgress.filter(cp => cp.completedAt).length;
-            const totalProgressPercent = courseProgress.length > 0
-                ? courseProgress.reduce((sum, cp) => sum + (cp.progressPercent || 0), 0) / courseProgress.length
-                : 0;
-            const averageQuizScore = quizScores.length > 0
-                ? quizScores.reduce((sum, qs) => sum + (qs.quizScore || 0), 0) / quizScores.length
-                : 0;
-
-            const totalMessages = messageContexts.length;
-            const successfulMessages = messageContexts.filter(mc => mc.message?.status === 'delivered' || mc.message?.status === 'read').length;
-
-            insights.push({
-                learner: {
-                    id: learner.id,
-                    name: learner.name,
-                    surname: learner.surname,
-                    number: learner.number,
-                    joinedAt: learner.createdAt
-                },
-                recentActivity: {
-                    courseProgress: courseProgress.map(cp => ({
-                        courseId: cp.course.id,
-                        courseName: cp.course.name,
-                        progressPercent: cp.progressPercent || 0,
-                        completedAt: cp.completedAt,
-                        completedLessons: cp.completedLessons || 0
-                    })),
-                    lessonProgress: lessonProgress.map(lp => ({
-                        lessonId: lp.lesson.id,
-                        lessonTitle: lp.lesson.title,
-                        courseId: lp.lesson.courseId,
-                        completedAt: lp.completedAt,
-                        quizScore: lp.quizScore,
-                        quizReply: lp.quizReply
-                    })),
-                    messageHistory: messageContexts.map(mc => ({
-                        //courseId: mc.courseId,
-                        //courseName: mc.course?.name,
-                        //lessonId: mc.lessonId,
-                        //lessonTitle: mc.lesson?.title,
-                        messageBody: mc.message.body,
-                        messageStatus: mc.message.status,
-                        ...(mc.message.status === 'read' ? { readAt: mc.message.createdAt } : { deliveredAt: mc.message.createdAt }),
-                        quizCorrectOption: mc.quiz?.correctOption,
-                    }))
-                },
-                statistics: {
-                    totalCourses: courseProgress.length,
-                    completedCourses: completedCourses,
-                    inProgressCourses: courseProgress.length - completedCourses,
-                    //averageProgress: Math.round(totalProgressPercent * 100) / 100,
-                    totalLessonsCompleted: lessonProgress.filter(lp => lp.completedAt).length,
-                    //totalQuizzesAttempted: quizScores.length,
-                    //averageQuizScore: Math.round(averageQuizScore * 100) / 100,
-                    //totalMessages: totalMessages,
-                    //successfulMessageRate: totalMessages > 0 ? Math.round((successfulMessages / totalMessages) * 100) : 0
-                },
-            });
-        }
-
-        /*
-        summary: {
-                totalLearners: learners.length,
-                averageProgress: insights.length > 0
-                    ? Math.round((insights.reduce((sum, i) => sum + i.statistics.averageProgress, 0) / insights.length) * 100) / 100
-                    : 0,
-                averageQuizScore: insights.length > 0
-                    ? Math.round((insights.reduce((sum, i) => sum + i.statistics.averageQuizScore, 0) / insights.length) * 100) / 100
-                    : 0,
-                totalMessages: insights.reduce((sum, i) => sum + i.statistics.totalMessages, 0)
-            }
-
-        */
-
+      const learners = await prisma.learner.findMany({
+        where: { adminId: adminId },
+        select: {
+          id: true,
+          name: true,
+          surname: true,
+          number: true,
+          createdAt: true,
+        },
+      });
+  
+      if (!learners || learners.length === 0) {
         return {
-            message: 'Learner insights retrieved successfully',
-            insights,            
+          success: true,
+          message: "No learners found",
+          data: [],
         };
-
+      }
+  
+      const insights = await Promise.all(
+        learners.map(async (learner) => {
+          const [courseProgress, lessonProgressAll, messageContexts] = await Promise.all([
+            prisma.courseProgress.findMany({
+              where: { learnerId: learner.id },
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    name: true,
+                    totalLessons: true,
+                    totalQuizzes: true,
+                  },
+                },
+              },
+            }),
+            prisma.lessonProgress.findMany({
+              where: { learnerId: learner.id },
+              include: {
+                lesson: {
+                  select: {
+                    id: true,
+                    title: true,
+                    day: true,
+                    courseId: true,
+                  },
+                },
+              },
+            }),
+            prisma.messageContext.findMany({
+              where: {
+                phoneNumber: learner.number,
+                courseId: { gt: 0 }, 
+                lessonId: { gt: 0 },
+                quizId: { gt: 0 },
+              },
+              include: {
+                message: {
+                  select: {
+                    id: true,
+                    body: true,
+                    status: true,
+                    createdAt: true,
+                  },
+                },
+                course: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                lesson: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+                quiz: {
+                  select: {
+                    id: true,
+                    question: true,
+                    correctOption: true,
+                  },
+                },
+              },
+            }),
+          ]);
+  
+          const quizScores = lessonProgressAll.filter(
+            (lp) => lp.quizScore !== null && lp.quizScore !== undefined
+          );
+  
+          const completedCourses = courseProgress.filter(
+            (cp) => cp.completedAt
+          ).length;
+  
+          return {
+            learner: {
+              id: learner.id,
+              name: learner.name,
+              surname: learner.surname,
+              number: learner.number,
+              joinedAt: learner.createdAt,
+            },
+            recentActivity: {
+              courseProgress: courseProgress.map((cp) => ({
+                courseId: cp.course.id,
+                courseName: cp.course.name,
+                progressPercent: cp.progressPercent || 0,
+                completedAt: cp.completedAt,
+                completedLessons: cp.completedLessons || 0,
+              })),
+              lessonProgress: lessonProgressAll.map((lp) => ({
+                lessonId: lp.lesson.id,
+                lessonTitle: lp.lesson.title,
+                courseId: lp.lesson.courseId,
+                completedAt: lp.completedAt,
+                quizScore: lp.quizScore,
+                quizReply: lp.quizReply,
+              })),
+              messageHistory: messageContexts.map((mc) => ({
+                messageBody: mc.message?.body,
+                messageStatus: mc.message?.status,
+                ...(mc.message?.status === "read"
+                  ? { readAt: mc.message?.createdAt }
+                  : { deliveredAt: mc.message?.createdAt }),
+                quizCorrectOption: mc.quiz?.correctOption,
+              })),
+            },
+            statistics: {
+              totalCourses: courseProgress.length,
+              completedCourses: completedCourses,
+              inProgressCourses: courseProgress.length - completedCourses,
+              totalLessonsCompleted: lessonProgressAll.filter((lp) => lp.completedAt)
+                .length,
+            },
+          };
+        })
+      );
+  
+      return {
+        message: "Learner insights retrieved successfully",
+        insights,
+      };
     } catch (error) {
-        console.error('Error in getLearnerInsights:', error);
-        throw new Error(`Failed to fetch learner insights: ${error.message}`);
+      console.error("Error in getLearnerInsights:", error);
+      throw new Error(`Failed to fetch learner insights: ${error.message}`);
     }
-};
-
+  };
 
 // Export all learner service functions for use in controllers
 module.exports = {
@@ -470,5 +420,6 @@ module.exports = {
     getAllLearners, // Function to retrieve all learners
     updateLearner, // Function to update learner profile information
     deleteLearner, // Function to delete single learner
-    deleteAllLearners // Function to delete all learners with cascading cleanup
+    deleteAllLearners, // Function to delete all learners with cascading cleanup
+    getLearnerInsights
 }
