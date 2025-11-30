@@ -103,7 +103,7 @@ const fileFilter = (request, file, callback) => {
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 30 * 1024 * 1024 // 30MB limit
+        fileSize: 10 * 1024 * 1024 // 10MB limit (Cloudinary limiti)
     },
     fileFilter: fileFilter
 });
@@ -203,14 +203,19 @@ router.post("/document", upload.single("file"), async (request, response) => {
         if (!request.file) {
             return response.status(400).json({
                 success: false,
-                error: 'No document uploaded'
+                error_code: 'NO_FILE_UPLOADED',
+                message: 'No document uploaded'
             });
         }
 
-        if(request.file.size > 30 * 1024 * 1024) { // Whatsapp documents 100MB limit
+        // Cloudinary limiti: 10MB (10485760 bytes)
+        const CLOUDINARY_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+        
+        if(request.file.size > CLOUDINARY_MAX_SIZE) {
             return response.status(400).json({
                 success: false,
-                error: 'Document size exceeds limit'
+                error_code: 'FILE_SIZE_EXCEEDED',
+                message: 'Dosya boyutu çok büyük. Maksimum 10MB olabilir.'
             });
         }
 
@@ -219,23 +224,31 @@ router.post("/document", upload.single("file"), async (request, response) => {
             success: true,
             message: 'Document uploaded successfully',
             file: {
-                filename: request.file.filename, // unique Cloudinary ID
-                url: request.file.path, // 🌐 Cloudinary URL
-                resource_type: request.file.resource_type, // Cloudinary resource type (image, video, raw, etc.)
+                filename: request.file.filename,
+                url: request.file.path,
+                resource_type: request.file.resource_type,
                 format: request.file.format,
                 size: request.file.size 
-                //originalname: request.file.originalname,
-                //mimetype: request.file.mimetype,
-                //path: request.file.path,
-                //url: `https://whatsapp-backend-s4dm.onrender.com/uploads/course_media/${request.file.filename}` // URL to access the file
             }
         });
     } catch (error) {
         console.error('Document upload error:', error);
+        
+        // Cloudinary hatası kontrolü
+        let errorCode = 'UNKNOWN_ERROR';
+        if (error.message && (
+            error.message.includes('File size too large') ||
+            error.message.includes('Maximum is 10485760') ||
+            error.message.includes('Cloudinary') || 
+            error.message.includes('cloudinary')
+        )) {
+            errorCode = 'CLOUDINARY_UPLOAD_FAILED';
+        }
+        
         response.status(500).json({
             success: false,
-            message: 'Document upload failed',
-            error: error.message
+            error_code: errorCode,
+            message: error.message || 'Document upload failed'
         });
     }
 });
@@ -512,6 +525,60 @@ router.get('/:filename', async (request, response) => {
             details: error.message
         });
     }
+});
+
+router.use((error, request, response, next) => {
+    // Multer hatalarını kontrol et
+    if (error instanceof multer.MulterError) {
+        let errorCode = 'UNKNOWN_ERROR';
+        let statusCode = 400;
+        
+        switch (error.code) {
+            case 'LIMIT_FILE_SIZE':
+                errorCode = 'FILE_TOO_LARGE';
+                break;
+            case 'LIMIT_UNEXPECTED_FILE':
+                errorCode = 'NO_FILE_UPLOADED';
+                break;
+            default:
+                errorCode = 'UNKNOWN_ERROR';
+        }
+        
+        return response.status(statusCode).json({
+            success: false,
+            error_code: errorCode,
+            message: error.message
+        });
+    }
+    
+    // FileFilter hatası (geçersiz dosya tipi)
+    if (error.message && error.message.includes('Invalid file type')) {
+        return response.status(400).json({
+            success: false,
+            error_code: 'INVALID_FILE_TYPE',
+            message: error.message
+        });
+    }
+    
+    // Cloudinary hatası (dosya boyutu limiti)
+    if (error.message && (
+        error.message.includes('File size too large') ||
+        error.message.includes('Maximum is 10485760') ||
+        error.message.includes('Upgrade your plan')
+    )) {
+        return response.status(400).json({
+            success: false,
+            error_code: 'FILE_SIZE_EXCEEDED',
+            message: 'Dosya boyutu çok büyük. Maksimum 10MB olabilir.'
+        });
+    }
+    
+    // Diğer tüm hatalar için fallback
+    response.status(500).json({
+        success: false,
+        error_code: 'UNKNOWN_ERROR',
+        message: error.message || 'An unexpected error occurred'
+    });
 });
 
 module.exports = router;
