@@ -118,8 +118,10 @@ const generateAIResponse = async (from) => {
       - Produce only the **final message** that the chatbot should send back to the learner.
       - The tone should match the learner’s language and formality.
       - Keep it human, empathetic, and clear.
+      - **IMPORTANT: Do NOT include any notes, explanations, or reasoning in parentheses. Send ONLY the final message text without any meta-commentary.**
+      - Do not add any notes like "(Note: ...)" or "(Not: ...)" in your response.
 
-      🧠 Example Behaviors:
+      �� Example Behaviors:
       - If learner says “Merhaba”, reply: “Merhaba! 😊”
       - If learner says “I’m stuck”, reply: “No problem! Can you tell me which part is confusing?”
       - If learner says “Ne zaman yeni ders gelecek?”, reply: “Yeni dersler yakında gönderilecek! Hazır olduğunuzda ‘Başla’ yazabilirsiniz. 📚”
