@@ -301,9 +301,14 @@ const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='0
         // Create quiz if this lesson has quiz data
         if (lesson.quiz) {
           // Validate quiz data structure
-          if (!lesson.quiz.question || !Array.isArray(lesson.quiz.options) || 
-              !lesson.quiz.correctOption) {
-            throw new Error('Quiz must have a question, options array, and correctOption'); // Fail if quiz data incomplete
+          if (!lesson.quiz.question || lesson.quiz.question.trim() === '') {
+            throw new Error(`Leasson "${lesson.title}" must have a question`);
+          }
+          if (!lesson.quiz.options || !Array.isArray(lesson.quiz.options)){
+            throw new Error(`Lesson "${lesson.title}" must have at least 2 quiz options`);
+          }
+          if (!lesson.quiz.correctOption || lesson.quiz.correctOption.trim() === '') {
+            throw new Error(`Lesson "${lesson.title}" must have a correct option`);
           }
 
           // Create the quiz record linked to this lesson

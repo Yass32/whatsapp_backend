@@ -69,7 +69,7 @@ const createCourse = async (request, response) => {
         response.status(201).json(createdCourse);
     } catch (error) {
         // Return appropriate error status
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        const statusCode = 400;
         response.status(statusCode).json({error: error.message});
     }
 }
