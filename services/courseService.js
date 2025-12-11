@@ -808,8 +808,21 @@ const unarchiveCourse = async (originalCourseId, newStatus) => {
       console.log(`Unarchiving course: ${originalCourse.name} (ID: ${originalCourse.id}) -> New status: ${newStatus}`);
 
       // 2. Create the new course with copied data
+      const baseName = originalCourse.name.replace(/\s*\(Kopya\s*\d*\)\s*$/, '');
+      const existingCopies = await tx.course.count({
+      where: {
+        name: {
+        startsWith: baseName,
+        contains: 'Kopya'
+          },
+      adminId: originalCourse.adminId
+        }
+      });
+
+const copyNumber = existingCopies > 0 ? ` ${existingCopies + 1}` : '';
+const newCourseName = `${baseName} (Kopya${copyNumber})`;
       const newCourseData = {
-        name: originalCourse.name,
+        name: newCourseName,
         description: originalCourse.description,
         coverImage: originalCourse.coverImage,
         totalLessons: originalCourse.totalLessons,

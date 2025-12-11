@@ -70,10 +70,16 @@ const lessonProcessor = async (job) => {
     await storeMessageContext(phoneNumber, response.messageId, course.id, lesson.id);
 
     // Add a small delay to ensure proper message ordering
-    await new Promise(resolve => setTimeout(resolve, 60000));
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
     // Send document if available
-    if (lesson.document) await whatsappService.sendDocument(phoneNumber, lesson.document);
+    if (lesson.document) {
+      let filename = lesson.document.split('/').pop().split('?')[0];
+      console.log(filename);
+      filename = filename.replace(/-\d{13}(\.\w+)$/, '$1');
+      console.log(filename);
+      await whatsappService.sendDocument(phoneNumber, lesson.document, filename);
+    }
 
     // Send media if available
     if (lesson.media) {
