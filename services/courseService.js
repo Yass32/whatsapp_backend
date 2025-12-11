@@ -1081,7 +1081,7 @@ const updateCourse = async (courseId, courseData, lessonsData = [], learnerIds, 
                   where: { courseId },
                   include: { learner: true }
               });
-              const phoneNumbersToNotify = activeEnrollmentsF
+              const phoneNumbersToNotify = activeEnrollments
                   .filter(e => e.learner && e.learner.number)
                   .map(e => e.learner.number);
 
