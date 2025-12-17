@@ -34,21 +34,9 @@ const createCourse = async (request, response) => {
     const { courseData, lessonsData, learnerIds, scheduleTime, startDate, frequency} = request.body;
 
     // Validate required fields
-    if (!courseData || !lessonsData || !learnerIds) {
+    if (!courseData) {
         return response.status(400).json({
-            error: 'Course data, lessons data, and learner IDs are required'
-        });
-    }
-
-    if (!Array.isArray(lessonsData) || lessonsData.length === 0) {
-        return response.status(400).json({
-            error: 'Lessons data must be a non-empty array'
-        });
-    }
-
-    if (!Array.isArray(learnerIds) || learnerIds.length === 0) {
-        return response.status(400).json({
-            error: 'Learner IDs must be a non-empty array'
+            error: 'Course data is required'
         });
     }
 
@@ -275,46 +263,39 @@ const unarchiveCourse = async (request, response) => {
 };
 
 /**
- * Update an existing draft course
- * @param {Object} request - Express request object
- * @param {Object} response - Express response object
+ * Controller to handle course update requests.
  */
 const updateCourse = async (request, response) => {
-  try {
-    const { courseId, courseData, lessonsData , numbers, scheduleTime, startDate, frequency} = request.body;
-
-    if (!courseId) {
-      return response.status(400).json({
-        error: 'Course ID is required'
+    try {
+      const { courseId, courseData, lessonsData, learnerIds, scheduleTime, startDate, frequency } = request.body;
+  
+      if (!courseId) {
+        return response.status(400).json({ error: 'Course ID is required' });
+      }
+  
+      // Basit bir kontrol: Güncellenecek hiçbir veri yoksa
+      if ((!courseData || Object.keys(courseData).length === 0) && !lessonsData && !learnerIds) {
+        return response.status(400).json({ error: 'No data provided for update' });
+      }
+  
+      const updatedCourse = await courseService.updateCourse(
+        Number(courseId),
+        courseData || {}, // Boş gelirse obje olsun
+        lessonsData,      // Opsiyonel
+        learnerIds,       // Opsiyonel
+        scheduleTime,
+        startDate,
+        frequency
+      );
+  
+      response.status(200).json(updatedCourse);
+    } catch (error) {
+      console.error('Error in handleUpdateCourse:', error);
+      response.status(400).json({ // 500 yerine 400, çünkü genelde validasyon hatası dönecek
+        error: error.message || 'Failed to update course'
       });
     }
-
-    // Validate required course data
-    if (!courseData || (courseData && Object.keys(courseData).length === 0)) {
-      return response.status(400).json({
-        error: 'Course data is required'
-      });
-    }
-
-    // Update the course
-    const updatedCourse = await courseService.updateCourse(
-      Number(courseId),
-      courseData,
-      lessonsData || [],
-      numbers,
-      scheduleTime,
-      startDate,
-      frequency
-    );
-
-    response.status(200).json(updatedCourse);
-  } catch (error) {
-    console.error('Error in updateCourse:', error);
-    response.status(500).json({
-      error: error.message || 'Failed to update course'
-    });
-  }
-};
+  };
 
 
 /**

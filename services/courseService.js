@@ -218,162 +218,180 @@ const scheduleLessons = async (courseId, numbers, scheduleTime, startDate = null
   }
 };
 
+/**
+ * Helper: Validates course creation/update data.
+ * Logic: Strict for PUBLISHED, Relaxed for DRAFT.
+ */
+const validateCourseCreation = (courseData, lessonsData, learnerIds, scheduleTime, startDate) => {
+  const isDraft = courseData?.status === 'DRAFT';
+
+  if (!courseData || !courseData.name || !courseData.description) {
+    throw new Error('Course name and description are required');
+  }
+
+  if (!isDraft && (!learnerIds || !Array.isArray(learnerIds) || learnerIds.length === 0)) {
+    throw new Error('At least one learner ID is required for published courses');
+  }
+
+  if (!lessonsData || !Array.isArray(lessonsData)) {
+    throw new Error('Lessons data must be an array');
+  }
+  
+  if (!isDraft && lessonsData.length === 0) {
+    throw new Error('At least one lesson is required for published courses');
+  }
+
+  if (!isDraft) {
+      if (!scheduleTime || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(scheduleTime)) {
+        throw new Error('Invalid schedule time format. Use HH:MM (24-hour format).');
+      }
+      if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        throw new Error('Invalid start date format. Use YYYY-MM-DD.');
+      }
+  }
+
+  for (let i = 0; i < lessonsData.length; i++) {
+    const lesson = lessonsData[i];
+    
+    if (lesson.day === undefined || !Number.isInteger(Number(lesson.day)) || Number(lesson.day) < 1) {
+       throw new Error(`Lesson ${i + 1} must have a valid positive numeric day (e.g., 1, 2, 3)`);
+    }
+
+    if (!isDraft) {
+      if (!lesson.title || !lesson.content) {
+        throw new Error(`Lesson ${i + 1} must have a title and content for published courses`);
+      }
+    }
+
+    if (lesson.quiz) {
+      if (!lesson.quiz.question || lesson.quiz.question.trim() === '') {
+        throw new Error(`Lesson ${i + 1} quiz must have a question`);
+      }
+      if (!lesson.quiz.options || !Array.isArray(lesson.quiz.options) || lesson.quiz.options.length < 2) {
+        throw new Error(`Lesson ${i + 1} quiz must have at least 2 options`);
+      }
+      if (!lesson.quiz.correctOption || lesson.quiz.correctOption.trim() === '') {
+        throw new Error(`Lesson ${i + 1} quiz must have a correct option`);
+      }
+    }
+  }
+
+  return true;
+};
+
 
 
 /**
  * Create a complete course with lessons, quizzes, and enrollments in a single database transaction
  * 
  * This function performs the following operations atomically:
- * 1. Creates the course record
- * 2. Creates all lessons and their associated quizzes
- * 3. Creates enrollments for all valid learners
- * 4. Sends course notifications via WhatsApp
- * 5. Schedules automated lesson delivery
+ * 1. Validates course creation data based on status (DRAFT vs PUBLISHED)
+ * 2. Creates the course record
+ * 3. Creates all lessons and their associated quizzes
+ * 4. Creates enrollments for all valid learners (if provided)
+ * 5. Sends course notifications via WhatsApp (only for PUBLISHED)
+ * 6. Schedules automated lesson delivery (only for PUBLISHED)
  * 
- * @param {Array} numbers - Array of WhatsApp phone numbers to enroll
- * @param {Object} courseData - Course information: { name, description, coverImage, adminId }
+ * @param {Object} courseData - Course information: { name, description, coverImage, adminId, status }
  * @param {Array} lessonsData - Array of lesson objects: { title, content, day, quiz }
- * @param {string} scheduleTime - Time for lesson delivery in "HH:MM" format
- * @param {string} startDate - Course start date in "YYYY-MM-DD" format
+ * @param {Array} learnerIds - Array of learner IDs for enrollment (optional for DRAFT)
+ * @param {string} scheduleTime - Time for lesson delivery in "HH:MM" format (optional for DRAFT)
+ * @param {string} startDate - Course start date in "YYYY-MM-DD" format (optional for DRAFT)
  * @param {string} frequency - Lesson delivery frequency: "daily", "weekly", or "monthly"
  * @returns {Object} Result object with course, lessons, quizzes, enrollments, and scheduling info
  * @throws {Error} If validation fails or database transaction fails
  */
 const createCourse = async (courseData, lessonsData, learnerIds, scheduleTime='09:00', startDate=new Date().toISOString().split('T')[0], frequency='daily') => {
-  // Validate required parameters before starting transaction
-  if (!learnerIds || !Array.isArray(learnerIds) || learnerIds.length === 0) {
-    throw new Error('At least one learner ID is required'); // Must have recipients
-  }
-  if (!courseData || !courseData.name || !courseData.description) {
-    throw new Error('Course name and description are required'); // Must have basic course info
-  }
-  if (!lessonsData || !Array.isArray(lessonsData) || lessonsData.length === 0) {
-    throw new Error('At least one lesson is required'); // Must have content to teach
-  }
-  if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(scheduleTime)) {
-    throw new Error('Invalid schedule time format. Use HH:MM (24-hour format)'); // Time format validation (HH:MM)
-  }
+  validateCourseCreation(courseData, lessonsData, learnerIds, scheduleTime, startDate);
 
+  const isDraft = courseData.status === 'DRAFT';
 
-  // Start a database transaction to ensure all operations succeed or fail together
-  const { course, lessons, quizzes, enrollments, learnersToNotify } = await prisma.$transaction(async (tx) => {
+  const { course, enrollments, learnersToNotify } = await prisma.$transaction(async (tx) => {
     try {
-      // Step 1: Create the main course record with DRAFT status by default
+      const shouldSaveDate = (startDate && scheduleTime);
+
       const course = await tx.course.create({
         data: {
-          name: courseData.name, // Course title
-          description: courseData.description, // Course description
-          coverImage: courseData.coverImage || null, // Optional cover image URL
-          status: courseData.status || 'PUBLISHED', // Default status for new courses
-          publishedAt: formatScheduledDateTime(startDate, scheduleTime), // Course start date
-          adminId: Number(courseData.adminId), // ID of the admin who created this course
-          totalLessons: lessonsData.length, // Count of lessons for progress tracking
-          totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0), // Count quizzes
+          name: courseData.name,
+          description: courseData.description,
+          coverImage: courseData.coverImage || null,
+          status: courseData.status || 'PUBLISHED',
+          adminId: Number(courseData.adminId),
+          publishedAt: shouldSaveDate 
+            ? formatScheduledDateTime(startDate, scheduleTime) 
+            : null,
+          totalLessons: lessonsData.length,
+          totalQuizzes: lessonsData.reduce((total, lesson) => total + (lesson.quiz ? 1 : 0), 0),
+          
+          lessons: {
+            create: lessonsData.map(lesson => ({
+              title: lesson.title || '',
+              content: lesson.content || '',
+              day: Number(lesson.day),
+              document: lesson.document || null,
+              media: lesson.media || null,
+              externalLink: lesson.externalLink || null,
+              quiz: lesson.quiz ? {
+                create: {
+                  question: lesson.quiz.question,
+                  options: lesson.quiz.options,
+                  correctOption: lesson.quiz.correctOption
+                }
+              } : undefined
+            }))
+          }
         },
+        include: {
+          lessons: { include: { quiz: true } }
+        }
       });
 
-      // Step 2: Create all lessons and their associated quizzes
-      const lessons = []; // Array to store created lesson records
-      const quizzes = []; // Array to store created quiz records
-      
-      // Process each lesson in the provided lessons data
-      for (const lesson of lessonsData) {
-        // Validate that each lesson has required fields
+      let enrollments = { count: 0 };
+      let learners = [];
+      let learnersToNotify = [];
 
-        if (!lesson.title || !lesson.content || Number.isNaN(lesson.day)) {
-          throw new Error('Each lesson must have a title, content, and numeric day');
-        }
-
-        // Create the lesson record in the database
-        const createdLesson = await tx.lesson.create({
-          data: {
-            title: lesson.title, // Lesson title/name
-            content: lesson.content, // Main lesson content/text
-            courseId: course.id, // Link to the parent course
-            day: Number(lesson.day), // Day number for ordering (1, 2, 3, etc.)
-            document: lesson.document || null, // Document file path
-            media: lesson.media || null, // Media file path
-            externalLink: lesson.externalLink || null, // External link URL
-          }
+      if (learnerIds && Array.isArray(learnerIds) && learnerIds.length > 0) {
+        learners = await tx.learner.findMany({
+          where: { id: { in: learnerIds } }
         });
-        lessons.push(createdLesson); // Add to results array
 
-        // Create quiz if this lesson has quiz data
-        if (lesson.quiz) {
-          // Validate quiz data structure
-          if (!lesson.quiz.question || lesson.quiz.question.trim() === '') {
-            throw new Error(`Leasson "${lesson.title}" must have a question`);
-          }
-          if (!lesson.quiz.options || !Array.isArray(lesson.quiz.options)){
-            throw new Error(`Lesson "${lesson.title}" must have at least 2 quiz options`);
-          }
-          if (!lesson.quiz.correctOption || lesson.quiz.correctOption.trim() === '') {
-            throw new Error(`Lesson "${lesson.title}" must have a correct option`);
-          }
+        if (!isDraft && learners.length === 0) {
+          throw new Error('No valid learners found with the provided IDs');
+        }
 
-          // Create the quiz record linked to this lesson
-          const createdQuiz = await tx.quiz.create({
-            data: {
-              lessonId: createdLesson.id, // Link to the parent lesson
-              question: lesson.quiz.question, // Quiz question text
-              options: lesson.quiz.options, // Array of possible answers
-              correctOption: lesson.quiz.correctOption // The correct answer
-            }
+        if (learners.length > 0) {
+          enrollments = await tx.enrollment.createMany({
+            data: learners.map(learner => ({
+              learnerId: learner.id,
+              courseId: course.id
+            })),
+            skipDuplicates: true
           });
-          quizzes.push(createdQuiz); // Add to results array
+          learnersToNotify = learners.map(learner => learner.number);
         }
       }
 
-      // Step 3: Create enrollments for all valid learners
-      // First, find all learners that exist with the provided phone numbers
-      const learners = await tx.learner.findMany({
-        where: { id: { in: learnerIds } } // Find learners whose numbers are in our array
-      });
-
-      // Ensure we found at least one valid learner
-      if (learners.length === 0) {
-        throw new Error('No valid learners found with the provided phone numbers'); // Fail if no learners exist
-      }
-
-      // Create enrollment records for each found learner
-      const enrollments = await tx.enrollment.createMany({
-        data: learners.map(learner => ({ // Create enrollment linking learner to course
-          learnerId: learner.id, // ID of the learner
-          courseId: course.id // ID of the course
-        })),
-        skipDuplicates: true
-      });
-
-
-      return { course, lessons, quizzes, enrollments, learnersToNotify: learners.map(learner => learner.number) /* Enroll and notify only learners that exist in DB*/ };
+      return { course, lessons: course.lessons, enrollments, learnersToNotify };
 
     } catch (error) {
-      // Log the specific error that occurred during course creation
-      console.error('Failed to create course:', error.code, error.message);
-      // Re-throw with descriptive message for the caller
+      console.error('Failed to create course:', error);
       throw new Error('Failed to create course: ' + error.message);
     }
-  }); // End of database transaction
+  });
 
-  // If course is draft, return course data and don't schedule lessons
   if (course.status === 'DRAFT') {
-    console.log(`Course "${course.name}" created successfully in DRAFT status.`);
-    return { course, lessons, quizzes, enrollments };
+    console.log(`Course "${course.name}" saved in DRAFT status.`);
+    return { course, lessons: course.lessons, enrollments };
   }
 
-  // Step 4: Queue course notifications for all enrolled learners
-  console.log(`📲 Queuing notifications for course "${course.name}" to ${learnersToNotify.length} learners.`);
-  // Add job to queue for each learner
+  console.log(`📲 Queuing notifications for course "${course.name}"`);
   for (const to of learnersToNotify) {
     addJobToQueue(notificationQueue, 'sendNotification', { phoneNumber: to, courseData, course });
   }
 
-  // Step 5: Schedule automated lesson delivery
-  // This creates cron jobs to send lessons at specified times instead of immediately
-  const scheduleLessonsResponse = await scheduleLessons(course.id, learnersToNotify, scheduleTime, startDate, frequency);
+  await scheduleLessons(course.id, learnersToNotify, scheduleTime, startDate, frequency);
 
-  // Return all created data for confirmation
-  return { scheduleLessonsResponse, course, lessons, quizzes, enrollments };
+  return { course, lessons: course.lessons, enrollments };
 };
 
 
@@ -941,248 +959,156 @@ const getCoursesByStatus = async (adminId, status) => {
  * @returns {Promise<Object>} - Updated course with lessons and quizzes
  * @throws {Error} If validation fails or update operation fails
  */
-const updateCourse = async (courseId, courseData, lessonsData = [], numbers, scheduleTime, startDate, frequency) => {
-  // Input validation
-  if (!courseId || isNaN(Number(courseId))) {
-      throw new Error('Valid course ID is required');
-  }
-
-  if (!courseData || typeof courseData !== 'object') {
-      throw new Error('Course data is required');
-  }
-
-  if (lessonsData && !Array.isArray(lessonsData)) {
-      throw new Error('Lessons data must be an array');
-  }
+const updateCourse = async (courseId, courseData, lessonsData = [], learnerIds, scheduleTime, startDate, frequency) => {
+  if (!courseId || isNaN(Number(courseId))) throw new Error('Valid course ID is required');
+  const safeCourseData = courseData || {};
+  if (lessonsData && !Array.isArray(lessonsData)) throw new Error('Lessons data must be an array');
 
   return await prisma.$transaction(async (tx) => {
       try {
-          // 1. Verify the course exists and is accessible
           const existingCourse = await tx.course.findUnique({
               where: { id: courseId },
-              include: { 
-                  lessons: { 
-                      include: { quiz: true } 
-                  } 
-              }
+              include: { lessons: { include: { quiz: true } } }
           });
 
-          if (!existingCourse) {
-              throw new Error('Course not found');
-          }
+          if (!existingCourse) throw new Error('Course not found');
 
-          // 2. Validate status transitions
-          if (courseData.status && existingCourse.status === 'PUBLISHED' && courseData.status !== 'PUBLISHED') {
+          const finalStatus = safeCourseData.status || existingCourse.status;
+          const willBeDraft = finalStatus === 'DRAFT';
+
+          if (safeCourseData.status && existingCourse.status === 'PUBLISHED' && safeCourseData.status !== 'PUBLISHED') {
               throw new Error('Cannot change status from PUBLISHED to DRAFT or ARCHIVED');
           }
 
-          // 3. Get enrolled learners for notifications
-          const enrollments = await tx.enrollment.findMany({
-              where: { courseId },
-              include: { learner: true }
+          let learnerIdsToValidate = learnerIds;
+          if (!learnerIdsToValidate) {
+             const current = await tx.enrollment.findMany({ where: { courseId }, select: { learnerId: true } });
+             learnerIdsToValidate = current.map(e => e.learnerId);
+          }
+
+          const mergedCourseData = { ...existingCourse, ...safeCourseData, status: finalStatus };
+          
+          const validationScheduleTime = scheduleTime || (existingCourse.publishedAt ? existingCourse.publishedAt.toTimeString().slice(0, 5) : null);
+          const validationStartDate = startDate || (existingCourse.publishedAt ? existingCourse.publishedAt.toISOString().split('T')[0] : null);
+
+          if (lessonsData && lessonsData.length > 0) {
+             validateCourseCreation(mergedCourseData, lessonsData, learnerIdsToValidate, validationScheduleTime, validationStartDate);
+          } else if (!willBeDraft) {
+             validateCourseCreation(mergedCourseData, existingCourse.lessons, learnerIdsToValidate, validationScheduleTime, validationStartDate);
+          }
+
+          const updateData = { updatedAt: new Date() };
+          if (safeCourseData.name !== undefined) updateData.name = safeCourseData.name;
+          if (safeCourseData.description !== undefined) updateData.description = safeCourseData.description;
+          if (safeCourseData.coverImage !== undefined) updateData.coverImage = safeCourseData.coverImage;
+          
+          updateData.status = finalStatus;
+
+          if (startDate && scheduleTime) {
+             updateData.publishedAt = formatScheduledDateTime(startDate, scheduleTime);
+          }
+          let lessonsOperation = {};
+          if (lessonsData && lessonsData.length > 0) {
+            const incomingIds = lessonsData.filter(l => l.id).map(l => l.id);
+            lessonsOperation = {
+                deleteMany: { id: { notIn: incomingIds } },
+                upsert: lessonsData.map(lesson => ({
+                    where: { id: lesson.id || -1 },
+                    update: {
+                        title: willBeDraft ? (lesson.title || '') : lesson.title,
+                        content: willBeDraft ? (lesson.content || '') : lesson.content,
+                        day: Number(lesson.day),
+                        document: lesson.document || null,
+                        media: lesson.media || null,
+                        externalLink: lesson.externalLink || null,
+                        quiz: lesson.quiz ? {
+                            upsert: {
+                                create: { question: lesson.quiz.question, options: lesson.quiz.options, correctOption: lesson.quiz.correctOption },
+                                update: { question: lesson.quiz.question, options: lesson.quiz.options, correctOption: lesson.quiz.correctOption }
+                            }
+                        } : { delete: true }
+                    },
+                    create: {
+                        title: willBeDraft ? (lesson.title || '') : lesson.title,
+                        content: willBeDraft ? (lesson.content || '') : lesson.content,
+                        day: Number(lesson.day),
+                        document: lesson.document || null,
+                        media: lesson.media || null,
+                        externalLink: lesson.externalLink || null,
+                        quiz: lesson.quiz ? {
+                            create: { question: lesson.quiz.question, options: lesson.quiz.options, correctOption: lesson.quiz.correctOption }
+                        } : undefined
+                    }
+                }))
+            };
+          }
+
+          const updatedCourse = await tx.course.update({
+              where: { id: courseId },
+              data: {
+                  ...updateData,
+                  ...(lessonsData && lessonsData.length > 0 ? { lessons: lessonsOperation } : {}),
+                  totalLessons: lessonsData && lessonsData.length > 0 ? lessonsData.length : existingCourse.lessons.length,
+                  totalQuizzes: (lessonsData && lessonsData.length > 0 ? lessonsData : existingCourse.lessons).reduce((acc, l) => acc + (l.quiz ? 1 : 0), 0),
+              },
+              include: { lessons: { include: { quiz: true } } }
           });
-          
-          const learnersToNotify = enrollments
-              .filter(e => e.learner)
-              .map(e => e.learner.number);
 
-          // 4. Prepare course update data
-          const updateData = {
-              updatedAt: new Date()
-          };
-
-          // Only update fields that are provided and different from existing
-          if (courseData.name !== undefined && courseData.name !== existingCourse.name) {
-              updateData.name = courseData.name;
-          }
-          if (courseData.description !== undefined && courseData.description !== existingCourse.description) {
-              updateData.description = courseData.description;
-          }
-          if (courseData.coverImage !== undefined && courseData.coverImage !== existingCourse.coverImage) {
-              updateData.coverImage = courseData.coverImage;
-          }
-          if (courseData.status && courseData.status !== existingCourse.status) {
-              updateData.status = courseData.status;
-              if (courseData.status === 'PUBLISHED') {
-                  updateData.publishedAt = new Date();
-              }
-          }
-
-          // 5. Update course if there are changes
-          let updatedCourse = existingCourse;
-          if (Object.keys(updateData).length > 1) { // More than just updatedAt
-              updatedCourse = await tx.course.update({
-                  where: { id: courseId },
-                  data: updateData,
-                  include: { lessons: true }
-              });
-          }
-
-          // If no lessons data provided, return early
-          if (!lessonsData || lessonsData.length === 0) {
-              return updatedCourse;
-          }
-
-          // 6. Validate lesson days are unique
-          const lessonDays = new Set();
-          for (const lessonData of lessonsData) {
-              if (lessonDays.has(lessonData.day)) {
-                  throw new Error(`Duplicate day number found: ${lessonData.day}. Each lesson must have a unique day.`);
-              }
-              lessonDays.add(lessonData.day);
-          }
-
-          // 7. Process lessons
-          const existingLessons = existingCourse.lessons || [];
-          const updatedLessons = [];
-          const updatedQuizzes = [];
-
-          for (const lessonData of lessonsData) {
-              // Validate lesson data
-              if (!lessonData.title || !lessonData.content || lessonData.day === undefined) {
-                  throw new Error('Each lesson must have a title, content, and day number');
-              }
-
-              const existingLesson = existingLessons.find(lesson => lesson.id === lessonData.id);
-              
-              if (existingLesson) {
-                  // Update existing lesson
-                  const updatedLesson = await tx.lesson.update({
-                      where: { id: existingLesson.id },
-                      data: {
-                          title: lessonData.title,
-                          content: lessonData.content,
-                          day: Number(lessonData.day),
-                          document: lessonData.document || null,
-                          media: lessonData.media || null,
-                          externalLink: lessonData.externalLink || null,
-                          updatedAt: new Date()
-                      },
-                      include: { quiz: true }
+          if (learnerIds && Array.isArray(learnerIds)) {
+              await tx.enrollment.deleteMany({ where: { courseId } });
+              if (learnerIds.length > 0) {
+                  await tx.enrollment.createMany({
+                      data: learnerIds.map(id => ({ learnerId: id, courseId })),
+                      skipDuplicates: true
                   });
-                  updatedLessons.push(updatedLesson);
-
-                  // Handle quiz update
-                  if (lessonData.quiz) {
-                    let quizData;
-                    try {
-                      quizData = {
-                        question: lessonData.quiz.question,
-                        options: Array.isArray(lessonData.quiz.options)
-                          ? lessonData.quiz.options
-                          : JSON.parse(lessonData.quiz.options || '[]'),
-                        correctOption: lessonData.quiz.correctOption
-                      };
-                    } catch (e) {
-                      throw new Error('Invalid quiz options format. Must be a valid JSON array.');
-                    }
-
-                    if (existingLesson.quiz) {
-                      // Update existing quiz
-                      const updatedQuiz = await tx.quiz.update({
-                        where: { id: existingLesson.quiz.id },
-                        data: quizData
-                      });
-                      updatedQuizzes.push(updatedQuiz);
-                    } else {
-                      // Create new quiz
-                      const newQuiz = await tx.quiz.create({
-                        data: {
-                          ...quizData,
-                          lessonId: existingLesson.id
-                        }
-                      });
-                      updatedQuizzes.push(newQuiz);
-                    }
-                  } else if (existingLesson.quiz) {
-                    // Remove existing quiz if not in update
-                    await tx.quiz.delete({ where: { id: existingLesson.quiz.id } });
-                  }
-              } else {
-                  // Create new lesson
-                  const newLesson = await tx.lesson.create({
-                      data: {
-                          title: lessonData.title,
-                          content: lessonData.content,
-                          day: Number(lessonData.day),
-                          course: { connect: { id: courseId } },
-                          ...(lessonData.quiz && {
-                              quiz: {
-                                  create: {
-                                      question: lessonData.quiz.question,
-                                      options: Array.isArray(lessonData.quiz.options) 
-                                          ? lessonData.quiz.options 
-                                          : JSON.parse(lessonData.quiz.options || '[]'),
-                                      correctOption: lessonData.quiz.correctOption
-                                  }
-                              }
-                          })
-                      },
-                      include: { quiz: true }
-                  });
-                  updatedLessons.push(newLesson);
-                  if (newLesson.quiz) {
-                      updatedQuizzes.push(newLesson.quiz);
-                  }
               }
           }
 
-          // 8. Clean up deleted lessons and their related data
-          const updatedLessonIds = updatedLessons.map(lesson => lesson.id);
-          const lessonsToDelete = existingLessons.filter(lesson => !updatedLessonIds.includes(lesson.id));
-          
-          if (lessonsToDelete.length > 0) {
-              const lessonIdsToDelete = lessonsToDelete.map(lesson => lesson.id);
-              
-              // Delete related records in correct order
-              await tx.quiz.deleteMany({
-                  where: { lessonId: { in: lessonIdsToDelete } }
-              });
+          const enrollments = await tx.enrollment.findMany({
+            where: { courseId },
+            include: { learner: true }
+          });
 
-              await tx.lessonProgress.deleteMany({
-                  where: { lessonId: { in: lessonIdsToDelete } }
-              });
-
-              await tx.lesson.deleteMany({
-                  where: { id: { in: lessonIdsToDelete } }
-              });
-          }
-
-          // 9. Prepare result
           const result = {
               ...updatedCourse,
-              lessons: updatedLessons,
-              quizzes: updatedQuizzes
+              lessons: updatedCourse.lessons,
+              quizzes: updatedCourse.lessons.map(l => l.quiz).filter(q => q),
+              enrollments: enrollments,
           };
 
-          // 10. Schedule notifications if published (outside transaction)
-          if (updatedCourse.status === 'PUBLISHED' && learnersToNotify.length > 0) {
-              // This will run after the transaction commits
-              process.nextTick(async () => {
-                  try {
-                      const notificationResults = await Promise.all(learnersToNotify.map(to => 
-                          addJobToQueue(notificationQueue, 'sendNotification', { 
-                              phoneNumber: to, 
-                              courseData: updatedCourse, 
-                              course: updatedCourse 
-                          })
-                      ));
-                      console.log(`✅ Queued ${notificationResults.length} notifications`);
-
-                      await scheduleLessons(updatedCourse.id, numbers, scheduleTime, startDate, frequency);
-                  } catch (error) {
-                      console.error('❌ Failed to queue notifications or schedule lessons:', error.message);
-                  }
+          if (updatedCourse.status === 'PUBLISHED') {
+              const activeEnrollments = await tx.enrollment.findMany({
+                  where: { courseId },
+                  include: { learner: true }
               });
+              const phoneNumbersToNotify = activeEnrollments
+                  .filter(e => e.learner && e.learner.number)
+                  .map(e => e.learner.number);
+
+              if (phoneNumbersToNotify.length > 0) {
+                  process.nextTick(async () => {
+                      try {
+                          const notificationResults = await Promise.all(phoneNumbersToNotify.map(to => 
+                              addJobToQueue(notificationQueue, 'sendNotification', { 
+                                  phoneNumber: to, courseData: updatedCourse, course: updatedCourse 
+                              })
+                          ));
+                          console.log(`✅ Queued ${notificationResults.length} notifications`);
+                          if (startDate && scheduleTime) {
+                            await scheduleLessons(updatedCourse.id, phoneNumbersToNotify, scheduleTime, startDate, frequency);
+                          }
+                      } catch (error) {
+                          console.error('❌ Failed to schedule lessons:', error.message);
+                      }
+                  });
+              }
           }
 
           return result;
 
       } catch (error) {
           console.error('Update course transaction error:', error);
-          if (error.code === 'P2025') {
-              throw new Error('Course not found or you do not have permission to update it');
-          }
+          if (error.code === 'P2025') throw new Error('Course not found or permission denied');
           throw new Error(`Failed to update course: ${error.message}`);
       }
   });
@@ -1294,7 +1220,17 @@ const getCourseById = async (courseId) => {
                       name: true,
                       email: true
                   }
-              }
+              },
+              enrollments: {
+                include: {
+                    learner: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                }
+            }
           }
       });
 
@@ -1302,7 +1238,23 @@ const getCourseById = async (courseId) => {
           throw new Error('Course not found');
       }
 
-      return course;
+      // ✅ Enrollment'lardaki ilk learner'ın group'unu bul
+      let groupId = null;
+      if (course.enrollments && course.enrollments.length > 0) {
+          const firstLearnerId = course.enrollments[0].learner.id;
+          
+          const groupMember = await prisma.groupMember.findFirst({
+              where: { learnerId: firstLearnerId },
+              select: { groupId: true }
+          });
+          
+          if (groupMember) {
+              groupId = groupMember.groupId;
+          }
+      }
+
+      const { enrollments, ...courseData } = course;
+      return { ...courseData, groupId };
   } catch (error) {
       console.error('Error fetching course:', error);
       throw new Error(error.message || 'Failed to fetch course');
